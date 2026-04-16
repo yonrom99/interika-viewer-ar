@@ -1,0 +1,612 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover" />
+  <meta name="apple-mobile-web-app-capable" content="yes" />
+  <meta name="mobile-web-app-capable" content="yes" />
+  <title>Interika · Realidad Aumentada</title>
+
+  <!-- Model Viewer — la librería de Google que maneja todo el AR sin configuración -->
+  <script type="module" src="https://ajax.googleapis.com/ajax/libs/model-viewer/3.4.0/model-viewer.min.js"></script>
+
+  <style>
+    @import url('https://fonts.googleapis.com/css2?family=Cormorant+Garamond:wght@300;400;500&family=Montserrat:wght@200;300;400;500&display=swap');
+
+    *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+    :root {
+      --negro:    #0a0a0a;
+      --blanco:   #f5f2ee;
+      --arena:    #c8b89a;
+      --arena2:   #a09070;
+      --carbon:   #1a1a1a;
+      --vidrio:   rgba(245,242,238,0.06);
+      --borde:    rgba(200,184,154,0.25);
+    }
+
+    html, body {
+      height: 100%;
+      width: 100%;
+      overflow: hidden;
+      background: var(--negro);
+      font-family: 'Montserrat', sans-serif;
+    }
+
+    /* ─── SPLASH SCREEN ─── */
+    #splash {
+      position: fixed;
+      inset: 0;
+      background: var(--negro);
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      justify-content: center;
+      gap: 0;
+      z-index: 100;
+      transition: opacity 0.8s ease, visibility 0.8s ease;
+    }
+    #splash.oculto {
+      opacity: 0;
+      visibility: hidden;
+      pointer-events: none;
+    }
+
+    .splash-logo {
+      width: 160px;
+      margin-bottom: 40px;
+      animation: logoIn 1.2s cubic-bezier(0.16,1,0.3,1) both;
+    }
+    @keyframes logoIn {
+      from { opacity: 0; transform: translateY(20px); }
+      to   { opacity: 1; transform: translateY(0); }
+    }
+
+    .splash-titulo {
+      font-family: 'Cormorant Garamond', serif;
+      font-size: clamp(28px, 8vw, 42px);
+      font-weight: 300;
+      color: var(--blanco);
+      letter-spacing: 0.12em;
+      text-transform: uppercase;
+      animation: logoIn 1.4s 0.2s cubic-bezier(0.16,1,0.3,1) both;
+    }
+    .splash-subtitulo {
+      font-size: 10px;
+      font-weight: 300;
+      color: var(--arena);
+      letter-spacing: 0.35em;
+      text-transform: uppercase;
+      margin-top: 8px;
+      animation: logoIn 1.4s 0.4s cubic-bezier(0.16,1,0.3,1) both;
+    }
+
+    .splash-linea {
+      width: 1px;
+      height: 60px;
+      background: linear-gradient(to bottom, transparent, var(--arena), transparent);
+      margin: 40px 0;
+      animation: logoIn 1.6s 0.6s cubic-bezier(0.16,1,0.3,1) both;
+    }
+
+    .splash-info {
+      text-align: center;
+      animation: logoIn 1.6s 0.8s cubic-bezier(0.16,1,0.3,1) both;
+    }
+    .splash-nombre-proyecto {
+      font-family: 'Cormorant Garamond', serif;
+      font-size: clamp(16px, 5vw, 22px);
+      font-weight: 400;
+      color: var(--blanco);
+      letter-spacing: 0.08em;
+    }
+    .splash-nombre-tipo {
+      font-size: 9px;
+      font-weight: 300;
+      color: var(--arena2);
+      letter-spacing: 0.4em;
+      text-transform: uppercase;
+      margin-top: 4px;
+    }
+
+    .splash-btn {
+      margin-top: 48px;
+      padding: 14px 40px;
+      background: transparent;
+      border: 1px solid var(--arena);
+      color: var(--arena);
+      font-family: 'Montserrat', sans-serif;
+      font-size: 10px;
+      font-weight: 400;
+      letter-spacing: 0.3em;
+      text-transform: uppercase;
+      cursor: pointer;
+      transition: all 0.3s ease;
+      animation: logoIn 1.8s 1s cubic-bezier(0.16,1,0.3,1) both;
+      position: relative;
+      overflow: hidden;
+    }
+    .splash-btn::before {
+      content: '';
+      position: absolute;
+      inset: 0;
+      background: var(--arena);
+      transform: translateX(-100%);
+      transition: transform 0.3s ease;
+      z-index: -1;
+    }
+    .splash-btn:hover::before { transform: translateX(0); }
+    .splash-btn:hover { color: var(--negro); }
+
+    .splash-nota {
+      position: absolute;
+      bottom: max(28px, env(safe-area-inset-bottom));
+      font-size: 9px;
+      color: var(--arena2);
+      letter-spacing: 0.25em;
+      text-transform: uppercase;
+      text-align: center;
+      animation: logoIn 2s 1.2s cubic-bezier(0.16,1,0.3,1) both;
+    }
+
+    /* ─── MODEL VIEWER ─── */
+    model-viewer {
+      width: 100%;
+      height: 100%;
+      position: fixed;
+      inset: 0;
+      background-color: #0a0a0a;
+      --poster-color: transparent;
+    }
+
+    /* Quitar UI default de model-viewer */
+    model-viewer::part(default-ar-button) { display: none; }
+    model-viewer::part(default-progress-bar) { display: none; }
+
+    /* ─── OVERLAY UI (sobre el viewer) ─── */
+    #ui-overlay {
+      position: fixed;
+      inset: 0;
+      pointer-events: none;
+      z-index: 10;
+      opacity: 0;
+      transition: opacity 0.6s ease;
+    }
+    #ui-overlay.visible { opacity: 1; }
+
+    /* Header */
+    .ui-header {
+      position: absolute;
+      top: 0;
+      left: 0;
+      right: 0;
+      padding: max(20px, env(safe-area-inset-top)) 24px 20px;
+      display: flex;
+      justify-content: space-between;
+      align-items: flex-start;
+      background: linear-gradient(to bottom, rgba(10,10,10,0.7) 0%, transparent 100%);
+    }
+
+    .ui-logo-small {
+      height: 28px;
+      opacity: 0.9;
+    }
+
+    .ui-nombre {
+      text-align: right;
+    }
+    .ui-nombre-proyecto {
+      font-family: 'Cormorant Garamond', serif;
+      font-size: 16px;
+      font-weight: 400;
+      color: var(--blanco);
+      letter-spacing: 0.06em;
+    }
+    .ui-nombre-tipo {
+      font-size: 8px;
+      font-weight: 300;
+      color: var(--arena);
+      letter-spacing: 0.35em;
+      text-transform: uppercase;
+      margin-top: 2px;
+    }
+
+    /* Footer de controles */
+    .ui-footer {
+      position: absolute;
+      bottom: 0;
+      left: 0;
+      right: 0;
+      padding: 20px 24px max(28px, env(safe-area-inset-bottom));
+      background: linear-gradient(to top, rgba(10,10,10,0.8) 0%, transparent 100%);
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      gap: 16px;
+      pointer-events: all;
+    }
+
+    .ui-hint {
+      font-size: 9px;
+      font-weight: 300;
+      color: var(--arena);
+      letter-spacing: 0.3em;
+      text-transform: uppercase;
+      text-align: center;
+    }
+
+    .ui-botones {
+      display: flex;
+      gap: 12px;
+      width: 100%;
+      max-width: 360px;
+    }
+
+    .btn-ar {
+      flex: 1;
+      padding: 14px 12px;
+      background: var(--arena);
+      border: none;
+      color: var(--negro);
+      font-family: 'Montserrat', sans-serif;
+      font-size: 9px;
+      font-weight: 500;
+      letter-spacing: 0.25em;
+      text-transform: uppercase;
+      cursor: pointer;
+      transition: all 0.25s ease;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      gap: 8px;
+    }
+    .btn-ar:hover { background: var(--blanco); }
+
+    .btn-secundario {
+      flex: 1;
+      padding: 14px 12px;
+      background: transparent;
+      border: 1px solid var(--borde);
+      color: var(--blanco);
+      font-family: 'Montserrat', sans-serif;
+      font-size: 9px;
+      font-weight: 300;
+      letter-spacing: 0.25em;
+      text-transform: uppercase;
+      cursor: pointer;
+      transition: all 0.25s ease;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      gap: 8px;
+    }
+    .btn-secundario:hover { border-color: var(--arena); color: var(--arena); }
+
+    /* Barra de progreso custom */
+    .barra-carga {
+      position: fixed;
+      bottom: 0;
+      left: 0;
+      height: 1px;
+      background: var(--arena);
+      width: 0%;
+      transition: width 0.3s ease;
+      z-index: 200;
+    }
+
+    /* ─── ESTADO AR ACTIVO ─── */
+    .ui-ar-activo {
+      position: fixed;
+      inset: 0;
+      pointer-events: none;
+      z-index: 50;
+      display: none;
+    }
+    .ui-ar-activo.visible { display: block; }
+
+    .ar-badge {
+      position: absolute;
+      top: max(20px, env(safe-area-inset-top));
+      left: 50%;
+      transform: translateX(-50%);
+      background: rgba(10,10,10,0.7);
+      border: 1px solid var(--borde);
+      padding: 8px 20px;
+      display: flex;
+      align-items: center;
+      gap: 8px;
+    }
+    .ar-dot {
+      width: 6px;
+      height: 6px;
+      border-radius: 50%;
+      background: var(--arena);
+      animation: parpadeo 1.5s ease infinite;
+    }
+    @keyframes parpadeo {
+      0%, 100% { opacity: 1; }
+      50% { opacity: 0.2; }
+    }
+    .ar-badge-text {
+      font-size: 9px;
+      font-weight: 300;
+      color: var(--blanco);
+      letter-spacing: 0.3em;
+      text-transform: uppercase;
+    }
+
+    /* ─── NO AR FALLBACK ─── */
+    #no-ar {
+      display: none;
+      position: fixed;
+      inset: 0;
+      background: var(--negro);
+      flex-direction: column;
+      align-items: center;
+      justify-content: center;
+      text-align: center;
+      padding: 40px;
+      z-index: 200;
+    }
+    #no-ar.visible { display: flex; }
+    .no-ar-icono {
+      font-size: 48px;
+      margin-bottom: 24px;
+      opacity: 0.5;
+    }
+    .no-ar-titulo {
+      font-family: 'Cormorant Garamond', serif;
+      font-size: 24px;
+      font-weight: 300;
+      color: var(--blanco);
+      letter-spacing: 0.08em;
+      margin-bottom: 12px;
+    }
+    .no-ar-texto {
+      font-size: 11px;
+      font-weight: 300;
+      color: var(--arena2);
+      letter-spacing: 0.1em;
+      line-height: 1.8;
+      max-width: 280px;
+    }
+
+    /* ─── LOADING OVERLAY ─── */
+    #cargando {
+      position: fixed;
+      inset: 0;
+      background: var(--negro);
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      justify-content: center;
+      z-index: 150;
+      transition: opacity 0.6s ease;
+    }
+    #cargando.oculto { opacity: 0; pointer-events: none; }
+
+    .carga-spinner {
+      width: 40px;
+      height: 40px;
+      border: 1px solid var(--borde);
+      border-top-color: var(--arena);
+      border-radius: 50%;
+      animation: girar 1.2s linear infinite;
+      margin-bottom: 20px;
+    }
+    @keyframes girar { to { transform: rotate(360deg); } }
+
+    .carga-texto {
+      font-size: 9px;
+      font-weight: 300;
+      color: var(--arena2);
+      letter-spacing: 0.35em;
+      text-transform: uppercase;
+    }
+  </style>
+</head>
+<body>
+
+  <!-- BARRA DE PROGRESO -->
+  <div class="barra-carga" id="barra"></div>
+
+  <!-- SPLASH INICIAL -->
+  <div id="splash">
+    <!-- Logo SVG inline (texto, sin imagen externa) -->
+    <svg class="splash-logo" viewBox="0 0 200 40" fill="none" xmlns="http://www.w3.org/2000/svg">
+      <text x="0" y="30" font-family="Cormorant Garamond, serif" font-size="28" font-weight="300"
+            fill="#c8b89a" letter-spacing="8">INTERIKA</text>
+    </svg>
+
+    <p class="splash-titulo">Realidad Aumentada</p>
+    <p class="splash-subtitulo">Visualización Inmersiva</p>
+
+    <div class="splash-linea"></div>
+
+    <div class="splash-info">
+      <p class="splash-nombre-proyecto" id="splash-nombre">Casa Prisma</p>
+      <p class="splash-nombre-tipo">Modelo arquitectónico · AR</p>
+    </div>
+
+    <button class="splash-btn" id="btn-iniciar" onclick="iniciarVisor()">
+      Proyectar modelo
+    </button>
+
+    <p class="splash-nota">Necesitas cámara · iOS 12+ / Android 8+</p>
+  </div>
+
+  <!-- CARGANDO MODELO -->
+  <div id="cargando">
+    <div class="carga-spinner"></div>
+    <p class="carga-texto">Cargando modelo</p>
+  </div>
+
+  <!-- EL VISOR 3D / AR -->
+  <model-viewer
+    id="visor"
+    src="https://modelviewer.dev/shared-assets/models/Astronaut.glb"
+    alt="Modelo arquitectónico Interika"
+    ar
+    ar-modes="webxr scene-viewer quick-look"
+    ar-scale="auto"
+    camera-controls
+    auto-rotate
+    auto-rotate-delay="2000"
+    rotation-per-second="15deg"
+    shadow-intensity="1"
+    shadow-softness="0.8"
+    exposure="0.9"
+    environment-image="neutral"
+    style="display:none"
+  ></model-viewer>
+
+  <!-- UI SOBRE EL VIEWER -->
+  <div id="ui-overlay">
+    <div class="ui-header">
+      <svg class="ui-logo-small" viewBox="0 0 160 30" fill="none" xmlns="http://www.w3.org/2000/svg">
+        <text x="0" y="22" font-family="Cormorant Garamond, serif" font-size="20" font-weight="300"
+              fill="#c8b89a" letter-spacing="5">INTERIKA</text>
+      </svg>
+      <div class="ui-nombre">
+        <p class="ui-nombre-proyecto" id="ui-nombre">Casa Prisma</p>
+        <p class="ui-nombre-tipo">Modelo · AR</p>
+      </div>
+    </div>
+
+    <div class="ui-footer">
+      <p class="ui-hint">Rota · Pellizca para escalar · Toca para AR</p>
+      <div class="ui-botones">
+        <button class="btn-ar" id="btn-ar-principal" onclick="lanzarAR()">
+          <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5">
+            <path d="M12 2L2 7l10 5 10-5-10-5z"/>
+            <path d="M2 17l10 5 10-5"/>
+            <path d="M2 12l10 5 10-5"/>
+          </svg>
+          Ver en mi espacio
+        </button>
+        <button class="btn-secundario" onclick="compartir()">
+          <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5">
+            <path d="M4 12v8a2 2 0 002 2h12a2 2 0 002-2v-8"/>
+            <polyline points="16 6 12 2 8 6"/>
+            <line x1="12" y1="2" x2="12" y2="15"/>
+          </svg>
+          Compartir
+        </button>
+      </div>
+    </div>
+  </div>
+
+  <!-- BADGE AR ACTIVO -->
+  <div class="ui-ar-activo" id="badge-ar">
+    <div class="ar-badge">
+      <div class="ar-dot"></div>
+      <span class="ar-badge-text">AR Activo · Interika</span>
+    </div>
+  </div>
+
+  <!-- FALLBACK: DISPOSITIVO SIN AR -->
+  <div id="no-ar">
+    <div class="no-ar-icono">◻</div>
+    <h2 class="no-ar-titulo">Dispositivo no compatible</h2>
+    <p class="no-ar-texto">
+      La realidad aumentada requiere iOS 12 o Android 8 con ARCore.<br><br>
+      Puedes seguir viendo el modelo en 3D girando la pantalla.
+    </p>
+  </div>
+
+  <script>
+    // ─── CONFIG: aquí se inyectan los datos del proyecto ───
+    // Cuando conectes Supabase, leerás ?tour=ID y harás fetch al config.json
+    const CONFIG = {
+      nombreProyecto: obtenerParam('nombre') || 'Casa Prisma',
+      modeloURL: obtenerParam('modelo') || 'https://modelviewer.dev/shared-assets/models/Astronaut.glb'
+      // Para tus modelos reales: 'https://xxx.supabase.co/storage/v1/object/public/proyectos/abc/modelo.glb'
+    };
+
+    function obtenerParam(nombre) {
+      const params = new URLSearchParams(window.location.search);
+      return params.get(nombre);
+    }
+
+    const visor    = document.getElementById('visor');
+    const splash   = document.getElementById('splash');
+    const cargando = document.getElementById('cargando');
+    const overlay  = document.getElementById('ui-overlay');
+    const barra    = document.getElementById('barra');
+    const badgeAR  = document.getElementById('badge-ar');
+    const noAR     = document.getElementById('no-ar');
+
+    // Poner nombre del proyecto
+    document.getElementById('splash-nombre').textContent = CONFIG.nombreProyecto;
+    document.getElementById('ui-nombre').textContent     = CONFIG.nombreProyecto;
+
+    // ─── INICIAR VISOR (al darle al botón del splash) ───
+    function iniciarVisor() {
+      splash.classList.add('oculto');
+      visor.style.display = 'block';
+      visor.src = CONFIG.modeloURL;
+
+      // Progreso de carga
+      visor.addEventListener('progress', (e) => {
+        const p = e.detail.totalProgress * 100;
+        barra.style.width = p + '%';
+      });
+
+      visor.addEventListener('load', () => {
+        barra.style.width = '100%';
+        setTimeout(() => {
+          cargando.classList.add('oculto');
+          overlay.classList.add('visible');
+          barra.style.width = '0%';
+
+          // Verificar soporte AR
+          if (!visor.canActivateAR) {
+            document.getElementById('btn-ar-principal').style.opacity = '0.4';
+            document.getElementById('btn-ar-principal').title = 'Tu dispositivo no soporta AR';
+          }
+        }, 400);
+      });
+    }
+
+    // ─── LANZAR AR ───
+    function lanzarAR() {
+      if (visor.canActivateAR) {
+        visor.activateAR();
+        badgeAR.classList.add('visible');
+        setTimeout(() => badgeAR.classList.remove('visible'), 8000);
+      } else {
+        noAR.classList.add('visible');
+        setTimeout(() => noAR.classList.remove('visible'), 4000);
+      }
+    }
+
+    // ─── COMPARTIR ───
+    async function compartir() {
+      const datos = {
+        title: `Interika · ${CONFIG.nombreProyecto}`,
+        text: 'Visualiza este proyecto en Realidad Aumentada',
+        url: window.location.href
+      };
+      if (navigator.share) {
+        try { await navigator.share(datos); } catch(e) {}
+      } else {
+        await navigator.clipboard.writeText(window.location.href);
+        const btn = document.querySelector('.btn-secundario');
+        const original = btn.innerHTML;
+        btn.innerHTML = '<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5"><polyline points="20 6 9 17 4 12"/></svg> ¡Copiado!';
+        setTimeout(() => btn.innerHTML = original, 2000);
+      }
+    }
+
+    // ─── EVENTOS DEL MODEL VIEWER ───
+    visor.addEventListener('ar-status', (e) => {
+      if (e.detail.status === 'session-started') {
+        badgeAR.classList.add('visible');
+      } else if (e.detail.status === 'not-presenting') {
+        badgeAR.classList.remove('visible');
+      }
+    });
+  </script>
+
+</body>
+</html>
