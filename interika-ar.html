@@ -330,7 +330,6 @@
     alt="Modelo arquitectónico Interika"
     ar
     ar-modes="webxr scene-viewer quick-look"
-    ar-placement="floor" 
     ar-scale="auto"
     camera-controls
     auto-rotate
@@ -339,7 +338,9 @@
     exposure="0.9"
     environment-image="neutral"
     style="display:none"
-  ></model-viewer>
+  >
+  <button id="anclaje-manual" class="hotspot" slot="hotspot-anclaje" data-surface="" data-position="" data-normal="" visibility-attribute="visible"></button>
+</model-viewer>
 
   <!-- Script inteligente: Detiene la rotación solo en AR -->
   <script>
@@ -476,6 +477,25 @@
       if (e.detail.status === 'session-started') badgeAR.classList.add('visible');
       else if (e.detail.status === 'not-presenting') badgeAR.classList.remove('visible');
     });
+
+    const visor3D = document.querySelector('#visor');
+  const botonAnclaje = document.querySelector('#anclaje-manual');
+
+  visor3D.addEventListener('load', () => {
+    // Escuchamos los clics/taps en el visor cuando está en AR
+    visor3D.addEventListener('click', (event) => {
+      // Si el toque es sobre la superficie detectada (data-surface), anclamos
+      if (event.detail.data && event.detail.data.surface) {
+        // Obtenemos la posición del toque y movemos el modelo ahí
+        const position = event.detail.data.position;
+        visor3D.updateHotspot({name: 'hotspot-anclaje', position});
+        console.log(`Modelo anclado en: ${position}`);
+        
+        // OPCIONAL: Detenemos la rotación al anclar
+        visor3D.removeAttribute('auto-rotate');
+      }
+    });
+  });
   </script>
 </body>
 </html>
