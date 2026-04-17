@@ -343,14 +343,11 @@
 
   <!-- Script inteligente: Detiene la rotación solo en AR -->
   <script>
-    const visor = document.querySelector('#visor');
-    visor.addEventListener('ar-status', (event) => {
+    document.querySelector('#visor').addEventListener('ar-status', (event) => {
       if (event.detail.status === 'session-started') {
-        // El usuario abrió la cámara (AR): Quitamos la rotación
-        visor.removeAttribute('auto-rotate');
+        event.target.removeAttribute('auto-rotate');
       } else if (event.detail.status === 'not-presenting') {
-        // El usuario cerró la cámara (Vista 3D): Regresamos la rotación
-        visor.setAttribute('auto-rotate', '');
+        event.target.setAttribute('auto-rotate', '');
       }
     });
   </script>
