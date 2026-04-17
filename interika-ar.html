@@ -7,7 +7,6 @@
   <meta name="mobile-web-app-capable" content="yes" />
   <title>Interika · Realidad Aumentada</title>
 
-  <!-- Model Viewer — la librería de Google que maneja todo el AR sin configuración -->
   <script type="module" src="https://ajax.googleapis.com/ajax/libs/model-viewer/3.4.0/model-viewer.min.js"></script>
 
   <style>
@@ -159,11 +158,10 @@
       --poster-color: transparent;
     }
 
-    /* Quitar UI default de model-viewer */
     model-viewer::part(default-ar-button) { display: none; }
     model-viewer::part(default-progress-bar) { display: none; }
 
-    /* ─── OVERLAY UI (sobre el viewer) ─── */
+    /* ─── OVERLAY UI ─── */
     #ui-overlay {
       position: fixed;
       inset: 0;
@@ -174,7 +172,6 @@
     }
     #ui-overlay.visible { opacity: 1; }
 
-    /* Header */
     .ui-header {
       position: absolute;
       top: 0;
@@ -187,14 +184,9 @@
       background: linear-gradient(to bottom, rgba(10,10,10,0.7) 0%, transparent 100%);
     }
 
-    .ui-logo-small {
-      height: 28px;
-      opacity: 0.9;
-    }
+    .ui-logo-small { height: 28px; opacity: 0.9; }
 
-    .ui-nombre {
-      text-align: right;
-    }
+    .ui-nombre { text-align: right; }
     .ui-nombre-proyecto {
       font-family: 'Cormorant Garamond', serif;
       font-size: 16px;
@@ -211,7 +203,6 @@
       margin-top: 2px;
     }
 
-    /* Footer de controles */
     .ui-footer {
       position: absolute;
       bottom: 0;
@@ -235,216 +226,104 @@
       text-align: center;
     }
 
-    .ui-botones {
-      display: flex;
-      gap: 12px;
-      width: 100%;
-      max-width: 360px;
-    }
+    .ui-botones { display: flex; gap: 12px; width: 100%; max-width: 360px; }
 
     .btn-ar {
-      flex: 1;
-      padding: 14px 12px;
-      background: var(--arena);
-      border: none;
-      color: var(--negro);
-      font-family: 'Montserrat', sans-serif;
-      font-size: 9px;
-      font-weight: 500;
-      letter-spacing: 0.25em;
-      text-transform: uppercase;
-      cursor: pointer;
-      transition: all 0.25s ease;
-      display: flex;
-      align-items: center;
-      justify-content: center;
-      gap: 8px;
+      flex: 1; padding: 14px 12px; background: var(--arena); border: none; color: var(--negro);
+      font-family: 'Montserrat', sans-serif; font-size: 9px; font-weight: 500;
+      letter-spacing: 0.25em; text-transform: uppercase; cursor: pointer; transition: all 0.25s ease;
+      display: flex; align-items: center; justify-content: center; gap: 8px;
     }
     .btn-ar:hover { background: var(--blanco); }
 
     .btn-secundario {
-      flex: 1;
-      padding: 14px 12px;
-      background: transparent;
-      border: 1px solid var(--borde);
-      color: var(--blanco);
-      font-family: 'Montserrat', sans-serif;
-      font-size: 9px;
-      font-weight: 300;
-      letter-spacing: 0.25em;
-      text-transform: uppercase;
-      cursor: pointer;
-      transition: all 0.25s ease;
-      display: flex;
-      align-items: center;
-      justify-content: center;
-      gap: 8px;
+      flex: 1; padding: 14px 12px; background: transparent; border: 1px solid var(--borde); color: var(--blanco);
+      font-family: 'Montserrat', sans-serif; font-size: 9px; font-weight: 300;
+      letter-spacing: 0.25em; text-transform: uppercase; cursor: pointer; transition: all 0.25s ease;
+      display: flex; align-items: center; justify-content: center; gap: 8px;
     }
     .btn-secundario:hover { border-color: var(--arena); color: var(--arena); }
 
-    /* Barra de progreso custom */
     .barra-carga {
-      position: fixed;
-      bottom: 0;
-      left: 0;
-      height: 1px;
-      background: var(--arena);
-      width: 0%;
-      transition: width 0.3s ease;
-      z-index: 200;
+      position: fixed; bottom: 0; left: 0; height: 1px; background: var(--arena);
+      width: 0%; transition: width 0.3s ease; z-index: 200;
     }
 
-    /* ─── ESTADO AR ACTIVO ─── */
     .ui-ar-activo {
-      position: fixed;
-      inset: 0;
-      pointer-events: none;
-      z-index: 50;
-      display: none;
+      position: fixed; inset: 0; pointer-events: none; z-index: 50; display: none;
     }
     .ui-ar-activo.visible { display: block; }
 
     .ar-badge {
-      position: absolute;
-      top: max(20px, env(safe-area-inset-top));
-      left: 50%;
-      transform: translateX(-50%);
-      background: rgba(10,10,10,0.7);
-      border: 1px solid var(--borde);
-      padding: 8px 20px;
-      display: flex;
-      align-items: center;
-      gap: 8px;
+      position: absolute; top: max(20px, env(safe-area-inset-top)); left: 50%;
+      transform: translateX(-50%); background: rgba(10,10,10,0.7); border: 1px solid var(--borde);
+      padding: 8px 20px; display: flex; align-items: center; gap: 8px;
     }
     .ar-dot {
-      width: 6px;
-      height: 6px;
-      border-radius: 50%;
-      background: var(--arena);
+      width: 6px; height: 6px; border-radius: 50%; background: var(--arena);
       animation: parpadeo 1.5s ease infinite;
     }
-    @keyframes parpadeo {
-      0%, 100% { opacity: 1; }
-      50% { opacity: 0.2; }
-    }
+    @keyframes parpadeo { 0%, 100% { opacity: 1; } 50% { opacity: 0.2; } }
     .ar-badge-text {
-      font-size: 9px;
-      font-weight: 300;
-      color: var(--blanco);
-      letter-spacing: 0.3em;
-      text-transform: uppercase;
+      font-size: 9px; font-weight: 300; color: var(--blanco); letter-spacing: 0.3em; text-transform: uppercase;
     }
 
-    /* ─── NO AR FALLBACK ─── */
     #no-ar {
-      display: none;
-      position: fixed;
-      inset: 0;
-      background: var(--negro);
-      flex-direction: column;
-      align-items: center;
-      justify-content: center;
-      text-align: center;
-      padding: 40px;
-      z-index: 200;
+      display: none; position: fixed; inset: 0; background: var(--negro); flex-direction: column;
+      align-items: center; justify-content: center; text-align: center; padding: 40px; z-index: 200;
     }
     #no-ar.visible { display: flex; }
-    .no-ar-icono {
-      font-size: 48px;
-      margin-bottom: 24px;
-      opacity: 0.5;
-    }
+    .no-ar-icono { font-size: 48px; margin-bottom: 24px; opacity: 0.5; }
     .no-ar-titulo {
-      font-family: 'Cormorant Garamond', serif;
-      font-size: 24px;
-      font-weight: 300;
-      color: var(--blanco);
-      letter-spacing: 0.08em;
-      margin-bottom: 12px;
+      font-family: 'Cormorant Garamond', serif; font-size: 24px; font-weight: 300; color: var(--blanco);
+      letter-spacing: 0.08em; margin-bottom: 12px;
     }
     .no-ar-texto {
-      font-size: 11px;
-      font-weight: 300;
-      color: var(--arena2);
-      letter-spacing: 0.1em;
-      line-height: 1.8;
-      max-width: 280px;
+      font-size: 11px; font-weight: 300; color: var(--arena2); letter-spacing: 0.1em; line-height: 1.8; max-width: 280px;
     }
 
     /* ─── LOADING OVERLAY ─── */
     #cargando {
-      position: fixed;
-      inset: 0;
-      background: var(--negro);
-      display: flex;
-      flex-direction: column;
-      align-items: center;
-      justify-content: center;
-      z-index: 150;
-      transition: opacity 0.6s ease;
+      position: fixed; inset: 0; background: var(--negro); display: flex; flex-direction: column;
+      align-items: center; justify-content: center; z-index: 150; transition: opacity 0.6s ease;
     }
     #cargando.oculto { opacity: 0; pointer-events: none; }
 
     .carga-spinner {
-      width: 40px;
-      height: 40px;
-      border: 1px solid var(--borde);
-      border-top-color: var(--arena);
-      border-radius: 50%;
-      animation: girar 1.2s linear infinite;
-      margin-bottom: 20px;
+      width: 40px; height: 40px; border: 1px solid var(--borde); border-top-color: var(--arena);
+      border-radius: 50%; animation: girar 1.2s linear infinite; margin-bottom: 20px;
     }
     @keyframes girar { to { transform: rotate(360deg); } }
-
-    .carga-texto {
-      font-size: 9px;
-      font-weight: 300;
-      color: var(--arena2);
-      letter-spacing: 0.35em;
-      text-transform: uppercase;
-    }
+    .carga-texto { font-size: 9px; font-weight: 300; color: var(--arena2); letter-spacing: 0.35em; text-transform: uppercase; }
   </style>
 </head>
 <body>
 
-  <!-- BARRA DE PROGRESO -->
   <div class="barra-carga" id="barra"></div>
 
-  <!-- SPLASH INICIAL -->
-  <div id="splash">
-    <!-- Logo SVG inline (texto, sin imagen externa) -->
-    <svg class="splash-logo" viewBox="0 0 200 40" fill="none" xmlns="http://www.w3.org/2000/svg">
-      <text x="0" y="30" font-family="Cormorant Garamond, serif" font-size="28" font-weight="300"
-            fill="#c8b89a" letter-spacing="8">INTERIKA</text>
-    </svg>
-
-    <p class="splash-titulo">Realidad Aumentada</p>
-    <p class="splash-subtitulo">Visualización Inmersiva</p>
-
-    <div class="splash-linea"></div>
-
-    <div class="splash-info">
-      <p class="splash-nombre-proyecto" id="splash-nombre">Casa Prisma</p>
-      <p class="splash-nombre-tipo">Modelo arquitectónico · AR</p>
-    </div>
-
-    <button class="splash-btn" id="btn-iniciar" onclick="iniciarVisor()">
-      Proyectar modelo
-    </button>
-
-    <p class="splash-nota">Necesitas cámara · iOS 12+ / Android 8+</p>
-  </div>
-
-  <!-- CARGANDO MODELO -->
-  <div id="cargando">
+  <div id="cargando" class="oculto">
     <div class="carga-spinner"></div>
     <p class="carga-texto">Cargando modelo</p>
   </div>
 
-  <!-- EL VISOR 3D / AR -->
+  <div id="splash">
+    <svg class="splash-logo" viewBox="0 0 200 40" fill="none" xmlns="http://www.w3.org/2000/svg">
+      <text x="0" y="30" font-family="Cormorant Garamond, serif" font-size="28" font-weight="300"
+            fill="#c8b89a" letter-spacing="8">INTERIKA</text>
+    </svg>
+    <p class="splash-titulo">Realidad Aumentada</p>
+    <p class="splash-subtitulo">Visualización Inmersiva</p>
+    <div class="splash-linea"></div>
+    <div class="splash-info">
+      <p class="splash-nombre-proyecto" id="splash-nombre">Casa Prisma</p>
+      <p class="splash-nombre-tipo">Modelo arquitectónico · AR</p>
+    </div>
+    <button class="splash-btn" id="btn-iniciar" onclick="iniciarVisor()">Proyectar modelo</button>
+    <p class="splash-nota">Necesitas cámara · iOS 12+ / Android 8+</p>
+  </div>
+
   <model-viewer
     id="visor"
-    src="https://modelviewer.dev/shared-assets/models/Astronaut.glb"
     alt="Modelo arquitectónico Interika"
     ar
     ar-modes="webxr scene-viewer quick-look"
@@ -460,7 +339,6 @@
     style="display:none"
   ></model-viewer>
 
-  <!-- UI SOBRE EL VIEWER -->
   <div id="ui-overlay">
     <div class="ui-header">
       <svg class="ui-logo-small" viewBox="0 0 160 30" fill="none" xmlns="http://www.w3.org/2000/svg">
@@ -472,23 +350,18 @@
         <p class="ui-nombre-tipo">Modelo · AR</p>
       </div>
     </div>
-
     <div class="ui-footer">
       <p class="ui-hint">Rota · Pellizca para escalar · Toca para AR</p>
       <div class="ui-botones">
         <button class="btn-ar" id="btn-ar-principal" onclick="lanzarAR()">
           <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5">
-            <path d="M12 2L2 7l10 5 10-5-10-5z"/>
-            <path d="M2 17l10 5 10-5"/>
-            <path d="M2 12l10 5 10-5"/>
+            <path d="M12 2L2 7l10 5 10-5-10-5z"/><path d="M2 17l10 5 10-5"/><path d="M2 12l10 5 10-5"/>
           </svg>
           Ver en mi espacio
         </button>
         <button class="btn-secundario" onclick="compartir()">
           <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5">
-            <path d="M4 12v8a2 2 0 002 2h12a2 2 0 002-2v-8"/>
-            <polyline points="16 6 12 2 8 6"/>
-            <line x1="12" y1="2" x2="12" y2="15"/>
+            <path d="M4 12v8a2 2 0 002 2h12a2 2 0 002-2v-8"/><polyline points="16 6 12 2 8 6"/><line x1="12" y1="2" x2="12" y2="15"/>
           </svg>
           Compartir
         </button>
@@ -496,31 +369,20 @@
     </div>
   </div>
 
-  <!-- BADGE AR ACTIVO -->
   <div class="ui-ar-activo" id="badge-ar">
-    <div class="ar-badge">
-      <div class="ar-dot"></div>
-      <span class="ar-badge-text">AR Activo · Interika</span>
-    </div>
+    <div class="ar-badge"><div class="ar-dot"></div><span class="ar-badge-text">AR Activo · Interika</span></div>
   </div>
 
-  <!-- FALLBACK: DISPOSITIVO SIN AR -->
   <div id="no-ar">
     <div class="no-ar-icono">◻</div>
     <h2 class="no-ar-titulo">Dispositivo no compatible</h2>
-    <p class="no-ar-texto">
-      La realidad aumentada requiere iOS 12 o Android 8 con ARCore.<br><br>
-      Puedes seguir viendo el modelo en 3D girando la pantalla.
-    </p>
+    <p class="no-ar-texto">La realidad aumentada requiere iOS 12 o Android 8 con ARCore.<br><br>Puedes seguir viendo el modelo en 3D girando la pantalla.</p>
   </div>
 
   <script>
-    // ─── CONFIG: aquí se inyectan los datos del proyecto ───
-    // Cuando conectes Supabase, leerás ?tour=ID y harás fetch al config.json
     const CONFIG = {
       nombreProyecto: obtenerParam('nombre') || 'Casa Prisma',
       modeloURL: obtenerParam('modelo') || 'https://modelviewer.dev/shared-assets/models/Astronaut.glb'
-      // Para tus modelos reales: 'https://xxx.supabase.co/storage/v1/object/public/proyectos/abc/modelo.glb'
     };
 
     function obtenerParam(nombre) {
@@ -536,30 +398,36 @@
     const badgeAR  = document.getElementById('badge-ar');
     const noAR     = document.getElementById('no-ar');
 
-    // Poner nombre del proyecto
     document.getElementById('splash-nombre').textContent = CONFIG.nombreProyecto;
     document.getElementById('ui-nombre').textContent     = CONFIG.nombreProyecto;
 
-    // ─── INICIAR VISOR (al darle al botón del splash) ───
     function iniciarVisor() {
+      // Ocultar splash y MOSTRAR pantalla de carga
       splash.classList.add('oculto');
+      cargando.classList.remove('oculto');
+      
       visor.style.display = 'block';
       visor.src = CONFIG.modeloURL;
 
-      // Progreso de carga
+      // Anti-Trabazón: Si a los 8 segundos no carga, quitamos el letrero a la fuerza
+      const seguroVida = setTimeout(() => {
+        cargando.classList.add('oculto');
+        overlay.classList.add('visible');
+      }, 8000);
+
       visor.addEventListener('progress', (e) => {
         const p = e.detail.totalProgress * 100;
         barra.style.width = p + '%';
       });
 
       visor.addEventListener('load', () => {
+        clearTimeout(seguroVida);
         barra.style.width = '100%';
         setTimeout(() => {
           cargando.classList.add('oculto');
           overlay.classList.add('visible');
           barra.style.width = '0%';
 
-          // Verificar soporte AR
           if (!visor.canActivateAR) {
             document.getElementById('btn-ar-principal').style.opacity = '0.4';
             document.getElementById('btn-ar-principal').title = 'Tu dispositivo no soporta AR';
@@ -568,7 +436,6 @@
       });
     }
 
-    // ─── LANZAR AR ───
     function lanzarAR() {
       if (visor.canActivateAR) {
         visor.activateAR();
@@ -580,33 +447,22 @@
       }
     }
 
-    // ─── COMPARTIR ───
     async function compartir() {
-      const datos = {
-        title: `Interika · ${CONFIG.nombreProyecto}`,
-        text: 'Visualiza este proyecto en Realidad Aumentada',
-        url: window.location.href
-      };
-      if (navigator.share) {
-        try { await navigator.share(datos); } catch(e) {}
-      } else {
+      const datos = { title: `Interika · ${CONFIG.nombreProyecto}`, text: 'Visualiza este proyecto', url: window.location.href };
+      if (navigator.share) { try { await navigator.share(datos); } catch(e) {} } 
+      else {
         await navigator.clipboard.writeText(window.location.href);
         const btn = document.querySelector('.btn-secundario');
         const original = btn.innerHTML;
-        btn.innerHTML = '<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5"><polyline points="20 6 9 17 4 12"/></svg> ¡Copiado!';
+        btn.innerHTML = '¡Copiado!';
         setTimeout(() => btn.innerHTML = original, 2000);
       }
     }
 
-    // ─── EVENTOS DEL MODEL VIEWER ───
     visor.addEventListener('ar-status', (e) => {
-      if (e.detail.status === 'session-started') {
-        badgeAR.classList.add('visible');
-      } else if (e.detail.status === 'not-presenting') {
-        badgeAR.classList.remove('visible');
-      }
+      if (e.detail.status === 'session-started') badgeAR.classList.add('visible');
+      else if (e.detail.status === 'not-presenting') badgeAR.classList.remove('visible');
     });
   </script>
-
 </body>
 </html>
