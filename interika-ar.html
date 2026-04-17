@@ -330,6 +330,7 @@
     alt="Modelo arquitectónico Interika"
     ar
     ar-modes="webxr scene-viewer quick-look"
+    ar-placement="floor" 
     ar-scale="auto"
     camera-controls
     auto-rotate
@@ -338,9 +339,17 @@
     exposure="0.9"
     environment-image="neutral"
     style="display:none"
-  >
-  <button id="anclaje-manual" class="hotspot" slot="hotspot-anclaje" data-surface="" data-position="" data-normal="" visibility-attribute="visible"></button>
-</model-viewer>
+  ></model-viewer>
+
+  <script>
+    document.querySelector('#visor').addEventListener('ar-status', (event) => {
+      if (event.detail.status === 'session-started') {
+        event.target.removeAttribute('auto-rotate');
+      } else if (event.detail.status === 'not-presenting') {
+        event.target.setAttribute('auto-rotate', '');
+      }
+    });
+  </script>
 
   <!-- Script inteligente: Detiene la rotación solo en AR -->
   <script>
