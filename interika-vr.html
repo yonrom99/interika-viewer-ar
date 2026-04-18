@@ -486,25 +486,30 @@ function seleccionarModo(m) {
 //  ENTRAR — lógica directa, sin esperar eventos de A-Frame
 // ══════════════════════════════════════════════════════════
 function entrar() {
-  // Ocultar splash
+  // 1. Ocultar splash y mostrar escena
   document.getElementById('splash').classList.add('oculto');
-
-  // Mostrar loading
-  document.getElementById('cargando').classList.add('visible');
-
-  // Revelar escena (ya estaba inicializada en segundo plano)
   document.getElementById('escena-base').classList.add('activa');
+  
+  // 2. FORZAR IMAGEN (Esto elimina el fondo negro)
+  const sky = document.getElementById('sky');
+  sky.setAttribute('src', 'https://cdn.aframe.io/360-image-gallery-boilerplate/img/city.jpg');
+  sky.setAttribute('color', '#fff');
 
-  const initScene = () => {
-    window.dispatchEvent(new Event('resize'));
-    setTimeout(() => {
-      if (modo === '360') {
-        arrancar360();
-      } else {
-        arrancarLibre();
-      }
-    }, 400);
-  };
+  // 3. Arrancar lógica
+  if (modo === '360') {
+    arrancar360();
+  } else {
+    arrancarLibre();
+  }
+
+  // 4. Permisos de giro (Para que se mueva al rotar el cel)
+  if (typeof DeviceOrientationEvent !== 'undefined' && typeof DeviceOrientationEvent.requestPermission === 'function') {
+    DeviceOrientationEvent.requestPermission().catch(console.error);
+  }
+  
+  // 5. Mostrar botones
+  document.getElementById('ui').classList.add('visible');
+}
 
   // Permiso giroscopio iOS 13+
   if (typeof DeviceOrientationEvent !== 'undefined' &&
@@ -654,9 +659,12 @@ function avanzar() {
 //  VR
 // ══════════════════════════════════════════════════════════
 function activarVR() {
-  const escena = document.getElementById('escena');
-  if (escena.hasLoaded) {
+  const escena = document.querySelector('a-scene');
+  if (escena) {
+    // Entrar a VR directo sin esperar a que cargue nada más
     escena.enterVR();
+    document.getElementById('badge-vr').classList.add('visible');
+    document.getElementById('ui').classList.remove('visible');
   }
 }
 
