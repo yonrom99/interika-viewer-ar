@@ -1,0 +1,750 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover" />
+  <meta name="apple-mobile-web-app-capable" content="yes" />
+  <meta name="mobile-web-app-capable" content="yes" />
+  <title>Interika · Recorrido VR 360°</title>
+
+  <script src="https://aframe.io/releases/1.5.0/aframe.min.js"></script>
+
+  <style>
+    @import url('https://fonts.googleapis.com/css2?family=Outfit:wght@200;300;400;500;600&display=swap');
+
+    *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+    :root {
+      --negro:    #0a0a0a;
+      --blanco:   #ffffff;
+      --arena:    #ffffff;
+      --arena2:   #999999;
+      --carbon:   #1a1a1a;
+      --vidrio:   rgba(255,255,255,0.06);
+      --borde:    rgba(255,255,255,0.25);
+    }
+
+    html, body {
+      height: 100%;
+      width: 100%;
+      overflow: hidden;
+      background: var(--negro);
+      font-family: 'Outfit', sans-serif;
+    }
+
+    /* ─── OCULTAR BOTÓN NATIVO DE A-FRAME ─── */
+    .a-enter-vr { display: none !important; }
+    .a-enter-ar { display: none !important; }
+
+    /* ─── SPLASH SCREEN ─── */
+    #splash {
+      position: fixed;
+      inset: 0;
+      background: var(--negro);
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      justify-content: center;
+      gap: 0;
+      z-index: 100;
+      transition: opacity 0.8s ease, visibility 0.8s ease;
+    }
+    #splash.oculto {
+      opacity: 0;
+      visibility: hidden;
+      pointer-events: none;
+    }
+
+    .splash-logo {
+      width: 160px;
+      margin-bottom: 40px;
+      animation: logoIn 1.2s cubic-bezier(0.16,1,0.3,1) both;
+    }
+    @keyframes logoIn {
+      from { opacity: 0; transform: translateY(20px); }
+      to   { opacity: 1; transform: translateY(0); }
+    }
+
+    .splash-titulo {
+      font-family: 'Outfit', sans-serif;
+      font-size: clamp(28px, 8vw, 42px);
+      font-weight: 300;
+      color: var(--blanco);
+      letter-spacing: 0.18em;
+      text-transform: uppercase;
+      text-align: center;
+      animation: logoIn 1.4s 0.2s cubic-bezier(0.16,1,0.3,1) both;
+    }
+    .splash-subtitulo {
+      font-size: 10px;
+      font-weight: 300;
+      color: var(--arena);
+      letter-spacing: 0.35em;
+      text-transform: uppercase;
+      margin-top: 8px;
+      animation: logoIn 1.4s 0.4s cubic-bezier(0.16,1,0.3,1) both;
+    }
+
+    .splash-linea {
+      width: 1px;
+      height: 60px;
+      background: linear-gradient(to bottom, transparent, var(--arena), transparent);
+      margin: 40px 0;
+      animation: logoIn 1.6s 0.6s cubic-bezier(0.16,1,0.3,1) both;
+    }
+
+    .splash-info {
+      text-align: center;
+      animation: logoIn 1.6s 0.8s cubic-bezier(0.16,1,0.3,1) both;
+    }
+    .splash-nombre-proyecto {
+      font-family: 'Outfit', sans-serif;
+      font-size: clamp(16px, 5vw, 22px);
+      font-weight: 400;
+      color: var(--blanco);
+      letter-spacing: 0.06em;
+    }
+    .splash-nombre-tipo {
+      font-size: 9px;
+      font-weight: 300;
+      color: var(--arena2);
+      letter-spacing: 0.4em;
+      text-transform: uppercase;
+      margin-top: 4px;
+    }
+
+    .splash-btn {
+      margin-top: 48px;
+      padding: 14px 40px;
+      background: transparent;
+      border: 1px solid var(--arena);
+      color: var(--arena);
+      font-family: 'Outfit', sans-serif;
+      font-size: 10px;
+      font-weight: 500;
+      letter-spacing: 0.3em;
+      text-transform: uppercase;
+      cursor: pointer;
+      transition: all 0.3s ease;
+      animation: logoIn 1.8s 1s cubic-bezier(0.16,1,0.3,1) both;
+      position: relative;
+      overflow: hidden;
+    }
+    .splash-btn::before {
+      content: '';
+      position: absolute;
+      inset: 0;
+      background: var(--arena);
+      transform: translateX(-100%);
+      transition: transform 0.3s ease;
+      z-index: -1;
+    }
+    .splash-btn:hover::before { transform: translateX(0); }
+    .splash-btn:hover { color: var(--negro); }
+
+    .splash-nota {
+      position: absolute;
+      bottom: max(28px, env(safe-area-inset-bottom));
+      font-size: 9px;
+      color: var(--arena2);
+      letter-spacing: 0.25em;
+      text-transform: uppercase;
+      text-align: center;
+      animation: logoIn 2s 1.2s cubic-bezier(0.16,1,0.3,1) both;
+    }
+
+    /* ─── LOADING OVERLAY ─── */
+    #cargando {
+      position: fixed; inset: 0; background: var(--negro); display: flex; flex-direction: column;
+      align-items: center; justify-content: center; z-index: 150; transition: opacity 0.6s ease;
+      pointer-events: none;
+    }
+    #cargando.visible { pointer-events: all; }
+    #cargando.oculto { opacity: 0; pointer-events: none; }
+
+    .carga-spinner {
+      width: 40px; height: 40px; border: 1px solid var(--borde); border-top-color: var(--arena);
+      border-radius: 50%; animation: girar 1.2s linear infinite; margin-bottom: 20px;
+    }
+    @keyframes girar { to { transform: rotate(360deg); } }
+    .carga-texto { font-size: 9px; font-weight: 300; color: var(--arena2); letter-spacing: 0.35em; text-transform: uppercase; }
+
+    .barra-carga {
+      position: fixed; bottom: 0; left: 0; height: 1px; background: var(--arena);
+      width: 0%; transition: width 0.3s ease; z-index: 200;
+    }
+
+    /* ─── OVERLAY UI ─── */
+    #ui-overlay {
+      position: fixed;
+      inset: 0;
+      pointer-events: none;
+      z-index: 10;
+      opacity: 0;
+      transition: opacity 0.6s ease;
+    }
+    #ui-overlay.visible { opacity: 1; }
+
+    .ui-header {
+      position: absolute;
+      top: 0;
+      left: 0;
+      right: 0;
+      padding: max(20px, env(safe-area-inset-top)) 24px 20px;
+      display: flex;
+      justify-content: space-between;
+      align-items: flex-start;
+      background: linear-gradient(to bottom, rgba(10,10,10,0.7) 0%, transparent 100%);
+    }
+
+    .ui-logo-small { height: 28px; opacity: 0.9; }
+
+    .ui-nombre { text-align: right; }
+    .ui-nombre-proyecto {
+      font-family: 'Outfit', sans-serif;
+      font-size: 16px;
+      font-weight: 400;
+      color: var(--blanco);
+      letter-spacing: 0.04em;
+    }
+    .ui-nombre-tipo {
+      font-size: 8px;
+      font-weight: 300;
+      color: var(--arena);
+      letter-spacing: 0.35em;
+      text-transform: uppercase;
+      margin-top: 2px;
+    }
+
+    /* Indicador de escena actual */
+    .ui-escena-badge {
+      position: absolute;
+      top: max(20px, env(safe-area-inset-top));
+      left: 50%;
+      transform: translateX(-50%);
+      background: rgba(10,10,10,0.6);
+      border: 1px solid var(--borde);
+      padding: 6px 18px;
+      pointer-events: none;
+      transition: opacity 0.4s ease;
+    }
+    .ui-escena-nombre {
+      font-size: 8px; font-weight: 300; color: var(--blanco);
+      letter-spacing: 0.3em; text-transform: uppercase; white-space: nowrap;
+    }
+
+    .ui-footer {
+      position: absolute;
+      bottom: 0;
+      left: 0;
+      right: 0;
+      padding: 20px 24px max(28px, env(safe-area-inset-bottom));
+      background: linear-gradient(to top, rgba(10,10,10,0.8) 0%, transparent 100%);
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      gap: 16px;
+      pointer-events: all;
+    }
+
+    .ui-hint {
+      font-size: clamp(7px, 2.2vw, 9px);
+      font-weight: 300;
+      color: var(--arena2);
+      letter-spacing: 0.15em;
+      text-transform: uppercase;
+      text-align: center;
+      width: 100%;
+      white-space: nowrap;
+    }
+
+    .ui-botones { display: flex; gap: 12px; width: 100%; max-width: 360px; }
+
+    .btn-ar {
+      flex: 1; padding: 14px 12px; background: var(--arena); border: none; color: var(--negro);
+      font-family: 'Outfit', sans-serif; font-size: 9px; font-weight: 500;
+      letter-spacing: 0.25em; text-transform: uppercase; cursor: pointer; transition: all 0.25s ease;
+      display: flex; align-items: center; justify-content: center; gap: 8px;
+    }
+    .btn-ar:hover { background: var(--arena2); }
+
+    .btn-secundario {
+      flex: 1; padding: 14px 12px; background: transparent;
+      border: 1px solid rgba(255,255,255,0.3); color: var(--arena2);
+      font-family: 'Outfit', sans-serif; font-size: 9px; font-weight: 300;
+      letter-spacing: 0.25em; text-transform: uppercase; cursor: pointer; transition: all 0.25s ease;
+      display: flex; align-items: center; justify-content: center; gap: 8px;
+    }
+    .btn-secundario:hover { border-color: var(--arena); color: var(--arena); }
+
+    /* ─── AFRAME CANVAS ─── */
+    a-scene {
+      position: fixed;
+      inset: 0;
+      z-index: 1;
+    }
+
+    /* ─── TRANSICIÓN DE ESCENA ─── */
+    #transicion {
+      position: fixed; inset: 0; background: var(--negro);
+      opacity: 0; pointer-events: none; z-index: 9;
+      transition: opacity 0.35s ease;
+    }
+    #transicion.activa { opacity: 1; pointer-events: all; }
+
+    /* ─── MINIATURAS DE ESCENAS (carrusel inferior opcional) ─── */
+    .ui-miniaturas {
+      display: flex; gap: 8px; overflow-x: auto; max-width: 100%;
+      scrollbar-width: none; padding: 0 4px;
+    }
+    .ui-miniaturas::-webkit-scrollbar { display: none; }
+
+    .miniatura-btn {
+      flex-shrink: 0; width: 48px; height: 32px;
+      background: rgba(255,255,255,0.08); border: 1px solid rgba(255,255,255,0.15);
+      cursor: pointer; transition: all 0.2s ease; position: relative;
+      font-size: 0;
+    }
+    .miniatura-btn.activa {
+      border-color: var(--arena);
+      background: rgba(255,255,255,0.15);
+    }
+    .miniatura-btn:hover { border-color: var(--arena2); }
+    .miniatura-btn img {
+      width: 100%; height: 100%; object-fit: cover; display: block; opacity: 0.7;
+    }
+    .miniatura-btn.activa img { opacity: 1; }
+  </style>
+</head>
+<body>
+
+  <div class="barra-carga" id="barra"></div>
+
+  <!-- LOADING -->
+  <div id="cargando" class="visible">
+    <div class="carga-spinner"></div>
+    <p class="carga-texto">Cargando recorrido</p>
+  </div>
+
+  <!-- SPLASH -->
+  <div id="splash">
+    <svg class="splash-logo" viewBox="0 0 220 40" fill="none" xmlns="http://www.w3.org/2000/svg">
+      <text x="0" y="30" font-family="Outfit, sans-serif" font-size="26" font-weight="300"
+            fill="#ffffff" letter-spacing="10">INTERIKA</text>
+    </svg>
+    <p class="splash-titulo">Recorrido 360°</p>
+    <p class="splash-subtitulo">Realidad Virtual Inmersiva</p>
+    <div class="splash-linea"></div>
+    <div class="splash-info">
+      <p class="splash-nombre-proyecto" id="splash-nombre">Cargando…</p>
+      <p class="splash-nombre-tipo" id="splash-tipo">Recorrido Virtual · VR</p>
+    </div>
+    <button class="splash-btn" id="btn-iniciar" onclick="iniciarRecorrido()">Iniciar recorrido</button>
+    <p class="splash-nota">Usa auriculares o gira tu teléfono para VR</p>
+  </div>
+
+  <!-- ESCENA A-FRAME -->
+  <a-scene
+    id="escena-aframe"
+    embedded
+    vr-mode-ui="enabled: false"
+    loading-screen="enabled: false"
+    renderer="antialias: true; colorManagement: true"
+    style="display:none"
+  >
+    <!-- Assets -->
+    <a-assets id="assets-container" timeout="30000"></a-assets>
+
+    <!-- Cielo panorámico -->
+    <a-sky id="sky-principal" src="" color="#0a0a0a" animation__color=""></a-sky>
+
+    <!-- Cámara con cursor Fuse -->
+    <a-entity id="camara-rig" position="0 0 0">
+      <a-camera
+        id="camara-vr"
+        look-controls="pointerLockEnabled: false; touchEnabled: true"
+        wasd-controls="enabled: false"
+      >
+        <!-- Cursor Fuse: muy sutil, semi-transparente -->
+        <a-cursor
+          id="cursor-fuse"
+          fuse="true"
+          fuse-timeout="1500"
+          color="#ffffff"
+          opacity="0.35"
+          scale="0.6 0.6 0.6"
+          raycaster="objects: .hotspot-ring"
+          animation__click="property: scale; startEvents: click; easing: easeInCubic; dur: 150; from: 0.6 0.6 0.6; to: 0.8 0.8 0.8"
+          animation__clickreset="property: scale; startEvents: animationcomplete__click; easing: easeOutCubic; dur: 150; from: 0.8 0.8 0.8; to: 0.6 0.6 0.6"
+          animation__fusestart="property: scale; startEvents: mouseenter; easing: easeInOutQuad; dur: 1500; from: 0.6 0.6 0.6; to: 1.1 1.1 1.1"
+          animation__fuseend="property: scale; startEvents: mouseleave; easing: easeOutCubic; dur: 200; from: 1.1 1.1 1.1; to: 0.6 0.6 0.6"
+        ></a-cursor>
+      </a-camera>
+    </a-entity>
+
+    <!-- Contenedor de hotspots (se llena dinámicamente) -->
+    <a-entity id="hotspots-container"></a-entity>
+
+  </a-scene>
+
+  <!-- CAPA DE TRANSICIÓN (fade negro entre escenas) -->
+  <div id="transicion"></div>
+
+  <!-- UI OVERLAY -->
+  <div id="ui-overlay">
+    <div class="ui-header">
+      <svg class="ui-logo-small" viewBox="0 0 180 30" fill="none" xmlns="http://www.w3.org/2000/svg">
+        <text x="0" y="22" font-family="Outfit, sans-serif" font-size="18" font-weight="300"
+              fill="#ffffff" letter-spacing="6">INTERIKA</text>
+      </svg>
+      <div class="ui-nombre">
+        <p class="ui-nombre-proyecto" id="ui-nombre">—</p>
+        <p class="ui-nombre-tipo">Recorrido · VR 360°</p>
+      </div>
+    </div>
+
+    <!-- Badge de escena actual (centro arriba) -->
+    <div class="ui-escena-badge" id="badge-escena">
+      <p class="ui-escena-nombre" id="badge-escena-nombre">—</p>
+    </div>
+
+    <div class="ui-footer">
+      <p class="ui-hint" id="ui-hint">Mira los portales · Sostén la mirada para navegar</p>
+
+      <!-- Miniaturas de escenas -->
+      <div class="ui-miniaturas" id="ui-miniaturas"></div>
+
+      <div class="ui-botones">
+        <button class="btn-ar" id="btn-vr" onclick="entrarVR()">
+          <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5">
+            <path d="M2 8a2 2 0 012-2h16a2 2 0 012 2v8a2 2 0 01-2 2H4a2 2 0 01-2-2V8z"/>
+            <circle cx="8.5" cy="12" r="1.5"/><circle cx="15.5" cy="12" r="1.5"/>
+            <path d="M11 12h2"/>
+          </svg>
+          Ver en lentes VR
+        </button>
+        <button class="btn-secundario" onclick="compartir()">
+          <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5">
+            <path d="M4 12v8a2 2 0 002 2h12a2 2 0 002-2v-8"/>
+            <polyline points="16 6 12 2 8 6"/>
+            <line x1="12" y1="2" x2="12" y2="15"/>
+          </svg>
+          Compartir
+        </button>
+      </div>
+    </div>
+  </div>
+
+  <script>
+    /* ══════════════════════════════════════════════
+       CONFIGURACIÓN Y ESTADO
+    ══════════════════════════════════════════════ */
+    const SUPABASE_BASE = 'https://nnfsyqbijkygmkymcexu.supabase.co/storage/v1/object/public/interika-360';
+
+    const params       = new URLSearchParams(window.location.search);
+    const TOUR_ID      = params.get('tour') || 'Proyecto Demo/VR-360';
+
+    const CONFIG_URL   = `${SUPABASE_BASE}/${TOUR_ID}/config.json`;
+
+    let tourData        = null;   // objeto JSON completo
+    let escenaActual    = 0;      // índice de la escena en pantalla
+    let cargandoEscena  = false;  // mutex de transición
+
+    /* ══════════════════════════════════════════════
+       REFERENCIAS DOM / A-FRAME
+    ══════════════════════════════════════════════ */
+    const elSplash       = document.getElementById('splash');
+    const elCargando     = document.getElementById('cargando');
+    const elOverlay      = document.getElementById('ui-overlay');
+    const elBarra        = document.getElementById('barra');
+    const elTransicion   = document.getElementById('transicion');
+    const elEscenaAframe = document.getElementById('escena-aframe');
+
+    /* ══════════════════════════════════════════════
+       INICIO: CARGA DEL CONFIG.JSON
+    ══════════════════════════════════════════════ */
+    async function cargarConfig() {
+      try {
+        const res  = await fetch(CONFIG_URL);
+        if (!res.ok) throw new Error(`HTTP ${res.status}`);
+        tourData   = await res.json();
+
+        // Rellenar splash con datos reales
+        const nombre = tourData.nombre || TOUR_ID.split('/').pop();
+        document.getElementById('splash-nombre').textContent = nombre;
+        document.getElementById('ui-nombre').textContent     = nombre;
+
+        // Quitar loading, mostrar splash
+        elCargando.classList.add('oculto');
+        elBarra.style.width = '0%';
+
+      } catch (err) {
+        console.warn('Config.json no encontrado, usando demo.', err);
+        tourData = demoFallback();
+        document.getElementById('splash-nombre').textContent = tourData.nombre;
+        document.getElementById('ui-nombre').textContent     = tourData.nombre;
+        elCargando.classList.add('oculto');
+      }
+    }
+
+    /* Demo fallback cuando no hay red / config */
+    function demoFallback() {
+      return {
+        nombre: 'Proyecto Demo',
+        escenas: [
+          {
+            id: 'sala',
+            nombre: 'Sala Principal',
+            imagen: 'https://upload.wikimedia.org/wikipedia/commons/thumb/8/8e/360_Panorama_of_the_Painted_Hall_at_Greenwich_UK.jpg/2560px-360_Panorama_of_the_Painted_Hall_at_Greenwich_UK.jpg',
+            hotspots: [
+              { id: 'a_cocina', label: 'Cocina', destino: 'cocina', pitch: -10, yaw: 90 }
+            ]
+          },
+          {
+            id: 'cocina',
+            nombre: 'Cocina',
+            imagen: 'https://upload.wikimedia.org/wikipedia/commons/thumb/a/a7/Camponotus_flavomarginatus_ant.jpg/2560px-Camponotus_flavomarginatus_ant.jpg',
+            hotspots: [
+              { id: 'a_sala', label: 'Sala', destino: 'sala', pitch: -10, yaw: -90 }
+            ]
+          }
+        ]
+      };
+    }
+
+    /* ══════════════════════════════════════════════
+       INICIAR RECORRIDO (desde botón splash)
+    ══════════════════════════════════════════════ */
+    function iniciarRecorrido() {
+      elSplash.classList.add('oculto');
+      elCargando.classList.remove('oculto');
+      elCargando.classList.remove('visible'); // quitar pointer-events block
+
+      // Mostrar la escena A-Frame
+      elEscenaAframe.style.display = 'block';
+
+      // Esperar a que A-Frame esté listo
+      elEscenaAframe.addEventListener('loaded', () => {
+        cargarEscena(0, true);
+      }, { once: true });
+
+      // Si ya estaba loaded (segunda llamada improbable)
+      if (elEscenaAframe.hasLoaded) cargarEscena(0, true);
+    }
+
+    /* ══════════════════════════════════════════════
+       CARGAR UNA ESCENA POR ÍNDICE
+    ══════════════════════════════════════════════ */
+    async function cargarEscena(indice, primeraCarga = false) {
+      if (cargandoEscena && !primeraCarga) return;
+      cargandoEscena = true;
+
+      const escena = tourData.escenas[indice];
+      if (!escena) { cargandoEscena = false; return; }
+
+      // Fade a negro
+      if (!primeraCarga) {
+        elTransicion.classList.add('activa');
+        await esperar(350);
+      }
+
+      // Cambiar imagen del cielo
+      const sky = document.getElementById('sky-principal');
+      sky.setAttribute('src', escena.imagen);
+      escenaActual = indice;
+
+      // Actualizar badge de escena
+      document.getElementById('badge-escena-nombre').textContent = escena.nombre || `Escena ${indice + 1}`;
+
+      // Rebuild hotspots
+      construirHotspots(escena.hotspots || []);
+
+      // Actualizar miniaturas activas
+      actualizarMiniaturas();
+
+      if (primeraCarga) {
+        // Esperar a que la textura cargue
+        sky.addEventListener('materialtextureloaded', () => {
+          elCargando.classList.add('oculto');
+          elOverlay.classList.add('visible');
+          cargandoEscena = false;
+        }, { once: true });
+
+        // Failsafe
+        setTimeout(() => {
+          if (cargandoEscena) {
+            elCargando.classList.add('oculto');
+            elOverlay.classList.add('visible');
+            cargandoEscena = false;
+          }
+        }, 6000);
+
+      } else {
+        // Fade desde negro
+        await esperar(300);
+        elTransicion.classList.remove('activa');
+        cargandoEscena = false;
+      }
+    }
+
+    /* Navegar a una escena por su ID (nombre) */
+    function irAEscenaPorId(idDestino) {
+      const idx = tourData.escenas.findIndex(e => e.id === idDestino);
+      if (idx !== -1) cargarEscena(idx);
+    }
+
+    /* ══════════════════════════════════════════════
+       CONSTRUIR HOTSPOTS EN A-FRAME
+       pitch  → rotación vertical   (elevación)
+       yaw    → rotación horizontal (azimut)
+    ══════════════════════════════════════════════ */
+    function construirHotspots(hotspots) {
+      const contenedor = document.getElementById('hotspots-container');
+      // Limpiar hotspots anteriores
+      while (contenedor.firstChild) contenedor.removeChild(contenedor.firstChild);
+
+      hotspots.forEach(hs => {
+        // Convertir pitch/yaw a posición en esfera unitaria (radio 4.9)
+        const r     = 4.9;
+        const phi   = THREE.MathUtils.degToRad(90 - hs.pitch);  // colatitud
+        const theta = THREE.MathUtils.degToRad(hs.yaw);         // azimut
+
+        const x = r * Math.sin(phi) * Math.sin(theta);
+        const y = r * Math.cos(phi);
+        const z = -r * Math.sin(phi) * Math.cos(theta);  // negativo por convención A-Frame
+
+        // Entidad raíz del hotspot
+        const entidad = document.createElement('a-entity');
+        entidad.setAttribute('id', `hs-${hs.id}`);
+        entidad.setAttribute('position', `${x} ${y} ${z}`);
+        entidad.setAttribute('look-at', '[camera]');
+        entidad.classList.add('hotspot-ring');
+
+        // Anillo exterior (siempre visible, pulsante)
+        const anilloExt = document.createElement('a-ring');
+        anilloExt.setAttribute('color', '#ffffff');
+        anilloExt.setAttribute('opacity', '0.5');
+        anilloExt.setAttribute('radius-inner', '0.08');
+        anilloExt.setAttribute('radius-outer', '0.12');
+        anilloExt.setAttribute('animation', 'property: scale; dir: alternate; loop: true; dur: 1800; easing: easeInOutSine; from: 1 1 1; to: 1.25 1.25 1.25');
+
+        // Anillo interior (relleno semitransparente)
+        const anilloInt = document.createElement('a-circle');
+        anilloInt.setAttribute('color', '#ffffff');
+        anilloInt.setAttribute('opacity', '0.15');
+        anilloInt.setAttribute('radius', '0.08');
+
+        // Texto label (debajo del anillo)
+        const label = document.createElement('a-text');
+        label.setAttribute('value', hs.label || '');
+        label.setAttribute('color', '#ffffff');
+        label.setAttribute('align', 'center');
+        label.setAttribute('width', '1.2');
+        label.setAttribute('position', '0 -0.18 0');
+        label.setAttribute('font', 'https://cdn.aframe.io/fonts/Roboto-msdf.json');
+        label.setAttribute('letter-spacing', '2');
+        label.setAttribute('opacity', '0.8');
+
+        entidad.appendChild(anilloExt);
+        entidad.appendChild(anilloInt);
+        entidad.appendChild(label);
+
+        // Evento: mirada fija (fuse) → cambiar escena
+        entidad.addEventListener('click', () => {
+          if (!cargandoEscena) irAEscenaPorId(hs.destino);
+        });
+
+        // Hover: resaltar
+        entidad.addEventListener('mouseenter', () => {
+          anilloExt.setAttribute('color', '#cccccc');
+          anilloInt.setAttribute('opacity', '0.35');
+        });
+        entidad.addEventListener('mouseleave', () => {
+          anilloExt.setAttribute('color', '#ffffff');
+          anilloInt.setAttribute('opacity', '0.15');
+        });
+
+        contenedor.appendChild(entidad);
+      });
+    }
+
+    /* ══════════════════════════════════════════════
+       MINIATURAS (carrusel)
+    ══════════════════════════════════════════════ */
+    function construirMiniaturas() {
+      const contenedor = document.getElementById('ui-miniaturas');
+      contenedor.innerHTML = '';
+
+      tourData.escenas.forEach((esc, i) => {
+        const btn = document.createElement('button');
+        btn.className = 'miniatura-btn' + (i === 0 ? ' activa' : '');
+        btn.title = esc.nombre || `Escena ${i + 1}`;
+        btn.setAttribute('aria-label', esc.nombre || `Ir a escena ${i + 1}`);
+        btn.onclick = () => cargarEscena(i);
+
+        if (esc.imagen) {
+          const img = document.createElement('img');
+          img.src = esc.imagen;
+          img.alt = esc.nombre || '';
+          btn.appendChild(img);
+        }
+        contenedor.appendChild(btn);
+      });
+    }
+
+    function actualizarMiniaturas() {
+      const btns = document.querySelectorAll('.miniatura-btn');
+      btns.forEach((btn, i) => {
+        btn.classList.toggle('activa', i === escenaActual);
+      });
+    }
+
+    /* ══════════════════════════════════════════════
+       BOTÓN VR
+    ══════════════════════════════════════════════ */
+    function entrarVR() {
+      const scene = document.querySelector('a-scene');
+      if (scene && scene.enterVR) {
+        scene.enterVR();
+      } else {
+        alert('Tu dispositivo no soporta WebVR / WebXR en este navegador.');
+      }
+    }
+
+    /* ══════════════════════════════════════════════
+       COMPARTIR
+    ══════════════════════════════════════════════ */
+    async function compartir() {
+      const nombre = tourData ? (tourData.nombre || TOUR_ID) : TOUR_ID;
+      const datos  = {
+        title: `Interika · ${nombre}`,
+        text: 'Explora este recorrido virtual 360°',
+        url: window.location.href
+      };
+      if (navigator.share) {
+        try { await navigator.share(datos); } catch(e) {}
+      } else {
+        await navigator.clipboard.writeText(window.location.href);
+        const btn = document.querySelector('.btn-secundario');
+        const orig = btn.innerHTML;
+        btn.textContent = '¡Copiado!';
+        setTimeout(() => btn.innerHTML = orig, 2000);
+      }
+    }
+
+    /* ══════════════════════════════════════════════
+       UTILIDADES
+    ══════════════════════════════════════════════ */
+    function esperar(ms) { return new Promise(r => setTimeout(r, ms)); }
+
+    /* ══════════════════════════════════════════════
+       ARRANQUE
+    ══════════════════════════════════════════════ */
+    (async () => {
+      await cargarConfig();
+      if (tourData) construirMiniaturas();
+    })();
+  </script>
+
+</body>
+</html>
