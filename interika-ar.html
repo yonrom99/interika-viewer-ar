@@ -10,15 +10,15 @@
   <script type="module" src="https://ajax.googleapis.com/ajax/libs/model-viewer/3.4.0/model-viewer.min.js"></script>
 
   <style>
-    @import url('https://fonts.googleapis.com/css2?family=Cormorant+Garamond:wght@300;400;500&family=Montserrat:wght@200;300;400;500&display=swap');
+    @import url('https://fonts.googleapis.com/css2?family=Outfit:wght@200;300;400;500;600&display=swap');
 
     *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
 
     :root {
       --negro:    #0a0a0a;
       --blanco:   #ffffff;
-      --arena:    #ffffff;   /* Acento principal: Blanco */
-      --arena2:   #999999;   /* Acento secundario: Gris elegante */
+      --arena:    #ffffff;
+      --arena2:   #999999;
       --carbon:   #1a1a1a;
       --vidrio:   rgba(255,255,255,0.06);
       --borde:    rgba(255,255,255,0.25);
@@ -29,7 +29,7 @@
       width: 100%;
       overflow: hidden;
       background: var(--negro);
-      font-family: 'Montserrat', sans-serif;
+      font-family: 'Outfit', sans-serif;
     }
 
     /* ─── SPLASH SCREEN ─── */
@@ -62,13 +62,13 @@
     }
 
     .splash-titulo {
-      font-family: 'Cormorant Garamond', serif;
+      font-family: 'Outfit', sans-serif;
       font-size: clamp(28px, 8vw, 42px);
       font-weight: 300;
       color: var(--blanco);
-      letter-spacing: 0.12em;
+      letter-spacing: 0.18em;
       text-transform: uppercase;
-      text-align: center; /* <--- ESTA ES LA MAGIA QUE LO CENTRA */
+      text-align: center;
       animation: logoIn 1.4s 0.2s cubic-bezier(0.16,1,0.3,1) both;
     }
     .splash-subtitulo {
@@ -94,11 +94,11 @@
       animation: logoIn 1.6s 0.8s cubic-bezier(0.16,1,0.3,1) both;
     }
     .splash-nombre-proyecto {
-      font-family: 'Cormorant Garamond', serif;
+      font-family: 'Outfit', sans-serif;
       font-size: clamp(16px, 5vw, 22px);
       font-weight: 400;
       color: var(--blanco);
-      letter-spacing: 0.08em;
+      letter-spacing: 0.06em;
     }
     .splash-nombre-tipo {
       font-size: 9px;
@@ -115,9 +115,9 @@
       background: transparent;
       border: 1px solid var(--arena);
       color: var(--arena);
-      font-family: 'Montserrat', sans-serif;
+      font-family: 'Outfit', sans-serif;
       font-size: 10px;
-      font-weight: 400;
+      font-weight: 500;
       letter-spacing: 0.3em;
       text-transform: uppercase;
       cursor: pointer;
@@ -189,11 +189,11 @@
 
     .ui-nombre { text-align: right; }
     .ui-nombre-proyecto {
-      font-family: 'Cormorant Garamond', serif;
+      font-family: 'Outfit', sans-serif;
       font-size: 16px;
       font-weight: 400;
       color: var(--blanco);
-      letter-spacing: 0.06em;
+      letter-spacing: 0.04em;
     }
     .ui-nombre-tipo {
       font-size: 8px;
@@ -219,21 +219,21 @@
     }
 
     .ui-hint {
-      font-size: clamp(7px, 2.2vw, 9px); /* Se auto-ajusta al ancho del celular */
+      font-size: clamp(7px, 2.2vw, 9px);
       font-weight: 300;
       color: var(--arena2);
-      letter-spacing: 0.15em; /* Redujimos un poco el aire entre letras */
+      letter-spacing: 0.15em;
       text-transform: uppercase;
       text-align: center;
       width: 100%;
-      white-space: nowrap; /* 🛑 Magia pura: Prohíbe que el texto salte de línea */
+      white-space: nowrap;
     }
 
     .ui-botones { display: flex; gap: 12px; width: 100%; max-width: 360px; }
 
     .btn-ar {
       flex: 1; padding: 14px 12px; background: var(--arena); border: none; color: var(--negro);
-      font-family: 'Montserrat', sans-serif; font-size: 9px; font-weight: 500;
+      font-family: 'Outfit', sans-serif; font-size: 9px; font-weight: 500;
       letter-spacing: 0.25em; text-transform: uppercase; cursor: pointer; transition: all 0.25s ease;
       display: flex; align-items: center; justify-content: center; gap: 8px;
     }
@@ -241,7 +241,7 @@
 
     .btn-secundario {
       flex: 1; padding: 14px 12px; background: transparent; border: 1px solid var(--borde); color: var(--blanco);
-      font-family: 'Montserrat', sans-serif; font-size: 9px; font-weight: 300;
+      font-family: 'Outfit', sans-serif; font-size: 9px; font-weight: 300;
       letter-spacing: 0.25em; text-transform: uppercase; cursor: pointer; transition: all 0.25s ease;
       display: flex; align-items: center; justify-content: center; gap: 8px;
     }
@@ -278,8 +278,8 @@
     #no-ar.visible { display: flex; }
     .no-ar-icono { font-size: 48px; margin-bottom: 24px; opacity: 0.5; }
     .no-ar-titulo {
-      font-family: 'Cormorant Garamond', serif; font-size: 24px; font-weight: 300; color: var(--blanco);
-      letter-spacing: 0.08em; margin-bottom: 12px;
+      font-family: 'Outfit', sans-serif; font-size: 24px; font-weight: 300; color: var(--blanco);
+      letter-spacing: 0.04em; margin-bottom: 12px;
     }
     .no-ar-texto {
       font-size: 11px; font-weight: 300; color: var(--arena2); letter-spacing: 0.1em; line-height: 1.8; max-width: 280px;
@@ -310,9 +310,9 @@
   </div>
 
   <div id="splash">
-    <svg class="splash-logo" viewBox="0 0 200 40" fill="none" xmlns="http://www.w3.org/2000/svg">
-      <text x="0" y="30" font-family="Cormorant Garamond, serif" font-size="28" font-weight="300"
-            <text x="0" y="30" font-family="Cormorant Garamond, serif" font-size="28" font-weight="300" fill="#ffffff" letter-spacing="8">INTERIKA</text>
+    <svg class="splash-logo" viewBox="0 0 220 40" fill="none" xmlns="http://www.w3.org/2000/svg">
+      <text x="0" y="30" font-family="Outfit, sans-serif" font-size="26" font-weight="300"
+            fill="#ffffff" letter-spacing="10">INTERIKA</text>
     </svg>
     <p class="splash-titulo">Realidad Aumentada</p>
     <p class="splash-subtitulo">Visualización Inmersiva</p>
@@ -330,7 +330,7 @@
     alt="Modelo arquitectónico Interika"
     ar
     ar-modes="webxr scene-viewer quick-look"
-    ar-placement="floor" 
+    ar-placement="floor"
     ar-scale="auto"
     camera-controls
     auto-rotate
@@ -340,16 +340,6 @@
     environment-image="neutral"
     style="display:none"
   ></model-viewer>
-
-  <script>
-    document.querySelector('#visor').addEventListener('ar-status', (event) => {
-      if (event.detail.status === 'session-started') {
-        event.target.removeAttribute('auto-rotate');
-      } else if (event.detail.status === 'not-presenting') {
-        event.target.setAttribute('auto-rotate', '');
-      }
-    });
-  </script>
 
   <!-- Script inteligente: Detiene la rotación solo en AR -->
   <script>
@@ -364,9 +354,9 @@
 
   <div id="ui-overlay">
     <div class="ui-header">
-      <svg class="ui-logo-small" viewBox="0 0 160 30" fill="none" xmlns="http://www.w3.org/2000/svg">
-        <text x="0" y="22" font-family="Cormorant Garamond, serif" font-size="20" font-weight="300"
-              <text x="0" y="22" font-family="Cormorant Garamond, serif" font-size="20" font-weight="300" fill="#ffffff" letter-spacing="5">INTERIKA</text>
+      <svg class="ui-logo-small" viewBox="0 0 180 30" fill="none" xmlns="http://www.w3.org/2000/svg">
+        <text x="0" y="22" font-family="Outfit, sans-serif" font-size="18" font-weight="300"
+              fill="#ffffff" letter-spacing="6">INTERIKA</text>
       </svg>
       <div class="ui-nombre">
         <p class="ui-nombre-proyecto" id="ui-nombre">Casa Prisma</p>
@@ -425,10 +415,9 @@
     document.getElementById('ui-nombre').textContent     = CONFIG.nombreProyecto;
 
     function iniciarVisor() {
-      // Ocultar splash y MOSTRAR pantalla de carga
       splash.classList.add('oculto');
       cargando.classList.remove('oculto');
-      
+
       visor.style.display = 'block';
       visor.src = CONFIG.modeloURL;
 
@@ -472,7 +461,7 @@
 
     async function compartir() {
       const datos = { title: `Interika · ${CONFIG.nombreProyecto}`, text: 'Visualiza este proyecto', url: window.location.href };
-      if (navigator.share) { try { await navigator.share(datos); } catch(e) {} } 
+      if (navigator.share) { try { await navigator.share(datos); } catch(e) {} }
       else {
         await navigator.clipboard.writeText(window.location.href);
         const btn = document.querySelector('.btn-secundario');
@@ -486,25 +475,7 @@
       if (e.detail.status === 'session-started') badgeAR.classList.add('visible');
       else if (e.detail.status === 'not-presenting') badgeAR.classList.remove('visible');
     });
-
-    const visor3D = document.querySelector('#visor');
-  const botonAnclaje = document.querySelector('#anclaje-manual');
-
-  visor3D.addEventListener('load', () => {
-    // Escuchamos los clics/taps en el visor cuando está en AR
-    visor3D.addEventListener('click', (event) => {
-      // Si el toque es sobre la superficie detectada (data-surface), anclamos
-      if (event.detail.data && event.detail.data.surface) {
-        // Obtenemos la posición del toque y movemos el modelo ahí
-        const position = event.detail.data.position;
-        visor3D.updateHotspot({name: 'hotspot-anclaje', position});
-        console.log(`Modelo anclado en: ${position}`);
-        
-        // OPCIONAL: Detenemos la rotación al anclar
-        visor3D.removeAttribute('auto-rotate');
-      }
-    });
-  });
   </script>
+
 </body>
 </html>
