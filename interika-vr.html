@@ -3,200 +3,459 @@
 <head>
   <meta charset="UTF-8"/>
   <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover"/>
-  <title>Interika · Recorrido 360</title>
-  
-  <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/pannellum@2.5.6/build/pannellum.css"/>
+  <title>Interika · Visualización Inmersiva</title>
+
+  <!--
+    Pannellum en lugar de A-Frame para el Tour 360°.
+    Razones:
+    - Maneja CORS automáticamente via proxy interno
+    - No tiene problema con display:none
+    - El botón de pantalla completa / VR funciona de fábrica
+    - Hotspots nativos, sin matemáticas de esferas
+    - Cero dependencia de sensores para arrancar
+  -->
+  <link  rel="stylesheet" href="https://cdn.jsdelivr.net/npm/pannellum@2.5.6/build/pannellum.css"/>
   <script src="https://cdn.jsdelivr.net/npm/pannellum@2.5.6/build/pannellum.js"></script>
 
   <style>
     @import url('https://fonts.googleapis.com/css2?family=Cormorant+Garamond:ital,wght@0,300;1,300&family=Montserrat:wght@300;400;500&display=swap');
 
-    * { box-sizing: border-box; margin: 0; padding: 0; }
-    
-    /* Paleta de Colores: TEMA CLARO (Blanco/Negro) */
-    :root {
-      --fondo: #f5f2ee;       /* Blanco/Hueso para el fondo */
-      --texto: #09090b;       /* Negro para las letras */
-      --acento: #09090b;      /* Negro para los botones */
-      --texto-boton: #f5f2ee; /* Blanco para las letras de los botones */
-      --borde: rgba(9, 9, 11, 0.15);
+    *{box-sizing:border-box;margin:0;padding:0}
+    :root{
+      --negro:#09090b;--blanco:#ffffff;
+      --arena:#ffffff;--arena2:rgba(255,255,255,0.45);
+      --borde:rgba(255,255,255,0.2);
     }
+    html,body{height:100%;width:100%;overflow:hidden;background:var(--negro);font-family:'Montserrat',sans-serif}
 
-    body, html { 
-      width: 100%; height: 100%; overflow: hidden; 
-      background: var(--fondo); color: var(--texto);
-      font-family: 'Montserrat', sans-serif; 
+    /* ── PANNELLUM ocupa todo ── */
+    #panorama{position:fixed;inset:0;display:none}
+    #panorama.show{display:block}
+
+    /* Ocultar controles default de Pannellum (usamos los nuestros) */
+    .pnlm-controls-container{display:none!important}
+    .pnlm-about-msg{display:none!important}
+
+    /* ── SPLASH ── */
+    #splash{
+      position:fixed;inset:0;z-index:999;background:var(--negro);
+      display:flex;flex-direction:column;align-items:center;justify-content:center;
+      transition:opacity .4s ease
     }
+    #splash.hide{opacity:0;pointer-events:none}
 
-    #panorama { width: 100%; height: 100%; }
-
-    /* --- UI de Inicio (Splash Screen) --- */
-    #ui-inicio {
-      position: absolute; top: 0; left: 0; width: 100%; height: 100%;
-      background: var(--fondo);
-      display: flex; flex-direction: column; justify-content: center; align-items: center;
-      z-index: 9999; transition: opacity 0.5s ease;
+    .logo{
+      font-family:'Cormorant Garamond',serif;
+      font-size:clamp(28px,8vw,42px);font-weight:300;
+      letter-spacing:.2em;color:var(--arena);margin-bottom:6px
     }
-
-    .logo {
-      font-family: 'Cormorant Garamond', serif; font-size: 3.5rem; font-style: italic;
-      margin-bottom: 2rem; letter-spacing: 2px; color: var(--texto);
+    .sub{font-size:9px;font-weight:300;color:var(--arena2);letter-spacing:.45em;text-transform:uppercase;margin-bottom:28px}
+    .proy-nombre{
+      font-family:'Cormorant Garamond',serif;
+      font-size:clamp(18px,5vw,26px);font-weight:300;font-style:italic;
+      color:var(--blanco);margin-bottom:4px
     }
+    .proy-tipo{font-size:8px;color:var(--arena2);letter-spacing:.35em;text-transform:uppercase;margin-bottom:32px}
 
-    .btn-ingresar {
-      background: var(--acento); color: var(--texto-boton);
-      border: none; padding: 15px 40px; font-size: 1rem; font-family: 'Montserrat', sans-serif;
-      font-weight: 500; letter-spacing: 2px; cursor: pointer; text-transform: uppercase;
-      border-radius: 2px; transition: all 0.3s ease; display: none;
+    .btn-ingresar{
+      padding:14px 52px;border:1px solid rgba(255,255,255,0.6);background:transparent;
+      color:#ffffff;font-family:'Montserrat',sans-serif;
+      font-size:9px;font-weight:400;letter-spacing:.35em;text-transform:uppercase;
+      cursor:pointer;transition:all .25s
     }
-    .btn-ingresar:active { transform: scale(0.95); }
+    .btn-ingresar:hover{background:#ffffff;color:var(--negro)}
+    .btn-ingresar:active{transform:scale(.98)}
 
-    #loading-text { font-size: 0.9rem; letter-spacing: 1px; animation: pulse 1.5s infinite; color: var(--texto); }
-    @keyframes pulse { 0% { opacity: 0.5; } 50% { opacity: 1; } 100% { opacity: 0.5; } }
+    .nota{font-size:8px;color:var(--arena2);letter-spacing:.2em;text-transform:uppercase;margin-top:14px;text-align:center;padding:0 20px}
 
-    /* --- UI de Controles (Abajo) --- */
-    #ui-controles {
-      position: absolute; bottom: 30px; left: 0; width: 100%;
-      display: none; justify-content: center; gap: 15px; z-index: 100; pointer-events: none;
+    /* ── CARGANDO ── */
+    #cargando{
+      position:fixed;inset:0;z-index:998;background:var(--negro);
+      display:none;flex-direction:column;align-items:center;justify-content:center
     }
-
-    .btn-control {
-      background: var(--fondo); color: var(--texto);
-      border: 1px solid var(--borde); padding: 12px 25px;
-      font-family: 'Montserrat', sans-serif; font-size: 0.85rem; font-weight: 500;
-      letter-spacing: 1px; cursor: pointer; border-radius: 40px; text-transform: uppercase;
-      pointer-events: auto; box-shadow: 0 4px 15px rgba(0,0,0,0.08); transition: all 0.3s ease;
+    #cargando.show{display:flex}
+    .spinner{
+      width:32px;height:32px;border:1px solid rgba(255,255,255,0.15);
+      border-top-color:#ffffff;border-radius:50%;
+      animation:giro 1s linear infinite;margin-bottom:14px
     }
-    .btn-control:active { transform: scale(0.95); background: var(--acento); color: var(--texto-boton); }
+    @keyframes giro{to{transform:rotate(360deg)}}
+    .carga-txt{font-size:9px;font-weight:300;color:var(--arena2);letter-spacing:.35em;text-transform:uppercase}
 
-    /* Ocultar botones nativos feos de Pannellum */
-    .pnlm-controls-container { display: none !important; }
-    .pnlm-load-box { display: none !important; }
-    
-    /* Estilo de los Hotspots (Puntos para cambiar de cuarto) */
-    .custom-hotspot {
-      width: 20px; height: 20px; background: var(--acento); border-radius: 50%;
-      border: 3px solid var(--fondo); box-shadow: 0 0 10px rgba(0,0,0,0.3);
-      cursor: pointer; transition: transform 0.2s;
+    /* ── ERROR ── */
+    #error-msg{
+      position:fixed;inset:0;z-index:997;background:var(--negro);
+      display:none;flex-direction:column;align-items:center;justify-content:center;
+      text-align:center;padding:40px
     }
-    .custom-hotspot:hover { transform: scale(1.2); }
+    #error-msg.show{display:flex}
+    .error-ico{font-size:32px;margin-bottom:16px;opacity:.5}
+    .error-titulo{font-family:'Cormorant Garamond',serif;font-size:22px;font-weight:300;color:var(--blanco);margin-bottom:10px}
+    .error-txt{font-size:11px;font-weight:300;color:var(--arena2);line-height:1.8;max-width:300px}
+    .error-btn{
+      margin-top:24px;padding:11px 32px;border:1px solid rgba(255,255,255,0.5);background:transparent;
+      color:#ffffff;font-family:'Montserrat',sans-serif;font-size:9px;
+      letter-spacing:.3em;text-transform:uppercase;cursor:pointer;transition:all .2s
+    }
+    .error-btn:hover{background:#ffffff;color:var(--negro)}
+
+    /* ── UI OVERLAY ── */
+    #ui{position:fixed;inset:0;z-index:100;pointer-events:none;opacity:0;transition:opacity .4s}
+    #ui.show{opacity:1}
+
+    .ui-header{
+      position:absolute;top:0;left:0;right:0;
+      padding:max(16px,env(safe-area-inset-top)) 20px 18px;
+      background:linear-gradient(to bottom,rgba(9,9,11,.85) 0%,transparent 100%);
+      display:flex;justify-content:space-between;align-items:flex-start
+    }
+    .ui-logo{font-family:'Cormorant Garamond',serif;font-size:16px;font-weight:300;color:var(--arena);letter-spacing:.15em}
+    .ui-der{text-align:right}
+    .ui-pnombre{font-family:'Cormorant Garamond',serif;font-size:15px;font-weight:300;color:var(--blanco)}
+    .ui-ptipo{font-size:8px;color:var(--arena2);letter-spacing:.35em;text-transform:uppercase;margin-top:2px}
+
+    .ui-footer{
+      position:absolute;bottom:0;left:0;right:0;
+      padding:16px 20px max(22px,env(safe-area-inset-bottom));
+      background:linear-gradient(to top,rgba(9,9,11,.9) 0%,transparent 100%);
+      pointer-events:all
+    }
+    #bloque-esc{text-align:center;margin-bottom:12px}
+    #esc-nombre{
+      font-family:'Cormorant Garamond',serif;
+      font-size:20px;font-weight:300;font-style:italic;color:var(--blanco)
+    }
+    #esc-num{font-size:8px;color:var(--arena2);letter-spacing:.3em;text-transform:uppercase;margin-top:3px}
+
+    #miniaturas{
+      display:flex;gap:8px;justify-content:center;
+      margin-bottom:12px;overflow-x:auto;scrollbar-width:none
+    }
+    #miniaturas::-webkit-scrollbar{display:none}
+    .mini{
+      width:34px;height:34px;border:1px solid rgba(255,255,255,0.18);background:#161616;
+      display:flex;align-items:center;justify-content:center;
+      font-size:9px;color:rgba(255,255,255,0.4);cursor:pointer;transition:all .2s;flex-shrink:0
+    }
+    .mini.sel{border-color:#ffffff;color:#ffffff}
+
+    .acciones{display:flex;gap:10px;justify-content:center}
+
+    .btn-share{
+      display:flex;align-items:center;gap:7px;
+      padding:12px 28px;background:transparent;border:1px solid rgba(255,255,255,0.3);
+      color:#ffffff;font-family:'Montserrat',sans-serif;
+      font-size:9px;font-weight:300;letter-spacing:.25em;text-transform:uppercase;
+      cursor:pointer;transition:all .2s
+    }
+    .btn-share:hover{border-color:#ffffff}
+
+    .ui-hint{text-align:center;margin-top:9px;font-size:8px;color:var(--arena2);letter-spacing:.25em;text-transform:uppercase}
+
+    /* Badge VR */
+    #badge-vr{
+      position:fixed;z-index:200;
+      top:max(14px,env(safe-area-inset-top));
+      left:50%;transform:translateX(-50%);
+      background:rgba(9,9,11,.85);border:1px solid var(--borde);
+      padding:7px 18px;display:none;align-items:center;gap:8px;
+      font-family:'Montserrat',sans-serif;font-size:8px;color:var(--blanco);
+      letter-spacing:.3em;text-transform:uppercase;white-space:nowrap
+    }
+    #badge-vr.show{display:flex}
+    .vr-dot{width:5px;height:5px;border-radius:50%;background:var(--arena);animation:par 1.5s infinite}
+    @keyframes par{0%,100%{opacity:1}50%{opacity:.1}}
+
+    /* Hotspot custom de Pannellum */
+    .hs-custom{
+      width:36px;height:36px;cursor:pointer;
+      position:relative;display:flex;align-items:center;justify-content:center
+    }
+    .hs-ring{
+      position:absolute;inset:0;border:1.5px solid rgba(255,255,255,0.8);border-radius:50%;
+      animation:rotar 8s linear infinite;opacity:.85
+    }
+    @keyframes rotar{to{transform:rotate(360deg)}}
+    .hs-dot{width:8px;height:8px;background:#ffffff;border-radius:50%}
+    .hs-label{
+      position:absolute;bottom:calc(100% + 4px);left:50%;transform:translateX(-50%);
+      font-family:'Montserrat',sans-serif;font-size:9px;font-weight:300;
+      color:var(--blanco);white-space:nowrap;
+      background:rgba(9,9,11,.75);padding:3px 8px;letter-spacing:.1em
+    }
   </style>
 </head>
 <body>
 
-  <div id="ui-inicio">
-    <div class="logo">Interika</div>
-    <div id="loading-text">CARGANDO PROYECTO...</div>
-    <button id="btn-entrar" class="btn-ingresar" onclick="entrar()">INGRESAR</button>
+<!-- ── CONTENEDOR PANNELLUM ── -->
+<div id="panorama"></div>
+
+<!-- ── SPLASH ── -->
+<div id="splash">
+  <p class="logo">INTERIKA</p>
+  <p class="sub">Experiencia inmersiva</p>
+  <p class="proy-nombre" id="txt-nombre">Cargando...</p>
+  <p class="proy-tipo" id="txt-tipo">Tour 360°</p>
+  <button class="btn-ingresar" id="btn-entrar" onclick="entrar()" disabled style="opacity:.5">
+    Cargando proyecto...
+  </button>
+  <p class="nota">Arrastra para explorar · Pincha hotspots para navegar · VR disponible</p>
+</div>
+
+<!-- ── CARGANDO ── -->
+<div id="cargando">
+  <div class="spinner"></div>
+  <p class="carga-txt" id="carga-txt">Cargando proyecto</p>
+</div>
+
+<!-- ── ERROR ── -->
+<div id="error-msg">
+  <div class="error-ico">◻</div>
+  <h2 class="error-titulo">No se pudo cargar</h2>
+  <p class="error-txt" id="error-detalle">No se encontró el proyecto. Verifica el link.</p>
+  <button class="error-btn" onclick="location.reload()">Reintentar</button>
+</div>
+
+<!-- ── UI OVERLAY ── -->
+<div id="ui">
+  <div class="ui-header">
+    <span class="ui-logo">INTERIKA</span>
+    <div class="ui-der">
+      <p class="ui-pnombre" id="ui-nombre"></p>
+      <p class="ui-ptipo"   id="ui-tipo">Tour 360°</p>
+    </div>
   </div>
-
-  <div id="panorama"></div>
-
-  <div id="ui-controles">
-    <button class="btn-control" onclick="compartir()">COMPARTIR</button>
+  <div class="ui-footer">
+    <div id="bloque-esc">
+      <p id="esc-nombre"></p>
+      <p id="esc-num"></p>
+    </div>
+    <div id="miniaturas"></div>
+    <div class="acciones">
+      <button class="btn-share" onclick="compartir()">
+        <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5">
+          <path d="M4 12v8a2 2 0 002 2h12a2 2 0 002-2v-8"/>
+          <polyline points="16 6 12 2 8 6"/>
+          <line x1="12" y1="2" x2="12" y2="15"/>
+        </svg>
+        Compartir
+      </button>
+    </div>
+    <p class="ui-hint">Arrastra para girar · Pellizca para zoom · Toca hotspots para navegar</p>
   </div>
+</div>
 
-  <script>
-    let viewer;
-    let datosProyecto;
 
-    // 1. Obtener la ruta de Supabase
-    const params = new URLSearchParams(window.location.search);
-    const tourPath = params.get('tour') || 'Proyecto Demo/VR-360';
-    const configUrl = "https://nnfsyqbijkygmkymcexu.supabase.co/storage/v1/object/public/interika-360/" + tourPath + "/config.json";
 
-    // 2. Cargar el JSON maestro de Supabase
-    fetch(configUrl)
-      .then(res => {
-        if (!res.ok) throw new Error("No encontrado");
-        return res.json();
+<script>
+// ═══════════════════════════════════════════════════════════════
+//  PARÁMETROS DE URL
+// ═══════════════════════════════════════════════════════════════
+var P      = new URLSearchParams(window.location.search);
+var TOUR   = P.get('tour');    // ID del tour en Supabase: ?tour=casa-prisma
+var NOMBRE = P.get('nombre');  // Nombre directo: ?nombre=Casa+Prisma (fallback)
+
+// URL base de tu Supabase — ajusta si cambia
+var SUPABASE_URL = 'https://nnfsyqbijkygmkymcexu.supabase.co/storage/v1/object/public/interika-360';
+
+// ═══════════════════════════════════════════════════════════════
+//  DATOS DEL PROYECTO
+//  Se cargan desde Supabase si viene ?tour=ID
+//  Si no, usan el placeholder de demostración
+// ═══════════════════════════════════════════════════════════════
+var proyecto = null;
+var viewer   = null;
+var escenaActual = 0;
+
+// Placeholder de demostración (imágenes públicas con CORS abierto)
+var DEMO = {
+  nombre: NOMBRE || 'Casa Prisma',
+  escenas: [
+    {
+      nombre: 'Sala principal',
+      // Imágenes de pixabay/wikimedia con CORS abierto — reemplazar con las tuyas de Supabase
+      imagen: 'https://pannellum.org/images/alma.jpg',
+      hotspots: [
+        { pitch: -5,  yaw:  80, destino: 1, label: 'Cocina' },
+        { pitch: -5,  yaw: -60, destino: 2, label: 'Recámara' }
+      ]
+    },
+    {
+      nombre: 'Cocina',
+      imagen: 'https://pannellum.org/images/cerro-toco-0.jpg',
+      hotspots: [
+        { pitch: -5, yaw: 180, destino: 0, label: 'Sala' }
+      ]
+    },
+    {
+      nombre: 'Recámara principal',
+      imagen: 'https://pannellum.org/images/jfk.jpg',
+      hotspots: [
+        { pitch: -5, yaw: 90, destino: 0, label: 'Sala' }
+      ]
+    }
+  ]
+};
+
+// ═══════════════════════════════════════════════════════════════
+//  ARRANQUE: cargar config desde Supabase o usar demo
+// ═══════════════════════════════════════════════════════════════
+(function init() {
+  if (TOUR) {
+    // Cargar config.json desde Supabase
+    var url = SUPABASE_URL + '/' + TOUR + '/config.json';
+    document.getElementById('carga-txt').textContent = 'Cargando proyecto';
+    document.getElementById('cargando').classList.add('show');
+
+    fetch(url)
+      .then(function(r) {
+        if (!r.ok) throw new Error('HTTP ' + r.status);
+        return r.json();
       })
-      .then(data => {
-        datosProyecto = data;
-        cargarEscena(0); // Cargar la primera habitación (índice 0)
+      .then(function(data) {
+        proyecto = data;
+        document.getElementById('cargando').classList.remove('show');
+        listo();
       })
-      .catch(err => {
-        console.error(err);
-        document.getElementById('loading-text').innerText = "ERROR AL CARGAR PROYECTO";
+      .catch(function(e) {
+        console.warn('config.json no encontrado, usando demo:', e);
+        // Si no hay config, cae al demo
+        proyecto = DEMO;
+        document.getElementById('cargando').classList.remove('show');
+        listo();
       });
+  } else {
+    // Sin ?tour=, usar demo directamente
+    proyecto = DEMO;
+    listo();
+  }
+})();
 
-    // 3. Función para cargar el render en pantalla
-    function cargarEscena(index) {
-      const escenaInfo = datosProyecto.escenas[index];
-      
-      if (viewer) {
-        viewer.destroy(); // Limpiar la escena anterior si estamos cambiando de cuarto
-      }
+function listo() {
+  // Poner nombre en splash
+  document.getElementById('txt-nombre').textContent = proyecto.nombre;
+  document.getElementById('ui-nombre').textContent  = proyecto.nombre;
 
-      // Preparar los hotspots (si agregas más cuartos en tu JSON)
-      let hotspotsConfig = [];
-      if (escenaInfo.hotspots) {
-        hotspotsConfig = escenaInfo.hotspots.map(hs => ({
-          pitch: hs.pitch,
-          yaw: hs.yaw,
-          cssClass: 'custom-hotspot',
-          createTooltipFunc: hotspotTooltip,
-          createTooltipArgs: hs.label,
-          clickHandlerFunc: () => cargarEscena(hs.destino) // Brincar de cuarto
-        }));
-      }
+  // Habilitar botón
+  var btn = document.getElementById('btn-entrar');
+  btn.disabled = false;
+  btn.style.opacity = '1';
+  btn.textContent = 'Ingresar';
+}
 
-      // Iniciar el motor Pannellum
-      viewer = pannellum.viewer('panorama', {
-        "type": "equirectangular",
-        "panorama": escenaInfo.imagen,
-        "autoLoad": true,
-        "showControls": false,
-        "hotSpots": hotspotsConfig
-      });
+// ═══════════════════════════════════════════════════════════════
+//  ENTRAR — sin sensores, sin eventos de carga, directo
+// ═══════════════════════════════════════════════════════════════
+function entrar() {
+  // 1. Ocultar splash inmediatamente
+  document.getElementById('splash').classList.add('hide');
 
-      // Mostrar el botón INGRESAR solo cuando la foto ya cargó
-      viewer.on('load', () => {
-        document.getElementById('loading-text').style.display = 'none';
-        document.getElementById('btn-entrar').style.display = 'block';
-      });
-    }
+  // 2. Mostrar panorama
+  document.getElementById('panorama').classList.add('show');
 
-    // Dibujar el nombre del cuarto al tocar el hotspot
-    function hotspotTooltip(hotSpotDiv, args) {
-      hotSpotDiv.classList.add('custom-tooltip');
-      var span = document.createElement('span');
-      span.innerHTML = args;
-      hotSpotDiv.appendChild(span);
-      span.style.width = span.scrollWidth - 20 + 'px';
-      span.style.marginLeft = -(span.scrollWidth - hotSpotDiv.offsetWidth) / 2 + 'px';
-      span.style.marginTop = -40 + 'px';
-      span.style.position = 'absolute';
-      span.style.background = 'var(--acento)';
-      span.style.color = 'var(--fondo)';
-      span.style.padding = '5px 10px';
-      span.style.borderRadius = '4px';
-      span.style.fontSize = '12px';
-      span.style.fontFamily = 'Montserrat, sans-serif';
-      span.style.pointerEvents = 'none';
-    }
+  // 3. Inicializar Pannellum con la primera escena
+  cargarEscena(0);
 
-    // 4. Funciones de la Interfaz
-    function entrar() {
-      document.getElementById('ui-inicio').style.opacity = '0';
-      setTimeout(() => { 
-        document.getElementById('ui-inicio').style.display = 'none'; 
-        document.getElementById('ui-controles').style.display = 'flex';
-      }, 500);
-    }
+  // 4. Construir miniaturas
+  construirMiniaturas();
 
-    function compartir() {
-      const url = window.location.href;
-      if (navigator.share) {
-        navigator.share({ title: 'Interika · ' + (datosProyecto ? datosProyecto.nombre : '360'), url }).catch(()=>{});
-      } else {
-        navigator.clipboard.writeText(url);
-        alert("Enlace copiado al portapapeles");
-      }
-    }
-  </script>
-</body>
-</html>
+  // 5. Mostrar UI
+  document.getElementById('ui').classList.add('show');
+}
+
+// ═══════════════════════════════════════════════════════════════
+//  PANNELLUM — cargar escena
+// ═══════════════════════════════════════════════════════════════
+function cargarEscena(idx) {
+  escenaActual = idx;
+  var esc = proyecto.escenas[idx];
+
+  // Actualizar UI
+  document.getElementById('esc-nombre').textContent = esc.nombre;
+  document.getElementById('esc-num').textContent    = (idx+1) + ' / ' + proyecto.escenas.length;
+  document.querySelectorAll('.mini').forEach(function(m, i) {
+    m.classList.toggle('sel', i === idx);
+  });
+
+  // Destruir viewer anterior si existe
+  if (viewer) {
+    try { viewer.destroy(); } catch(e) {}
+    viewer = null;
+  }
+
+  // Construir hotspots para Pannellum
+  var hotspots = (esc.hotspots || []).map(function(h) {
+    return {
+      pitch:    h.pitch || -5,
+      yaw:      h.yaw   || 0,
+      type:    'custom',
+      text:     h.label || '',
+      cssClass: 'hs-custom',
+      createTooltipFunc: function(hotspot, args) {
+        var div = document.createElement('div');
+        div.className = 'hs-custom';
+        div.innerHTML =
+          '<div class="hs-ring"></div>' +
+          '<div class="hs-dot"></div>' +
+          '<div class="hs-label">' + args.label + '</div>';
+        hotspot.appendChild(div);
+      },
+      createTooltipArgs: { label: h.label, destino: h.destino },
+      clickHandlerFunc: function(e, args) {
+        cargarEscena(args.destino);
+      },
+      clickHandlerArgs: { destino: h.destino, label: h.label }
+    };
+  });
+
+  // Crear nuevo viewer
+  viewer = pannellum.viewer('panorama', {
+    type:          'equirectangular',
+    panorama:       esc.imagen,
+    autoLoad:       true,
+    showControls:   false,   // usamos nuestra propia UI
+    compass:        false,
+    hotSpots:       hotspots,
+    hfov:           100,
+    minHfov:        50,
+    maxHfov:        120,
+    autoRotate:    -2,        // rotación suave automática
+    autoRotateInactivityDelay: 3000,
+    uiText: { loadButtonLabel: '' }
+  });
+}
+
+// ═══════════════════════════════════════════════════════════════
+//  MINIATURAS
+// ═══════════════════════════════════════════════════════════════
+function construirMiniaturas() {
+  var cont = document.getElementById('miniaturas');
+  cont.innerHTML = '';
+  proyecto.escenas.forEach(function(e, i) {
+    var el = document.createElement('div');
+    el.className = 'mini' + (i === 0 ? ' sel' : '');
+    el.textContent = i + 1;
+    el.title = e.nombre;
+    el.onclick = (function(idx) { return function() { cargarEscena(idx); }; })(i);
+    cont.appendChild(el);
+  });
+}
+
+// ═══════════════════════════════════════════════════════════════
+//  COMPARTIR
+// ═══════════════════════════════════════════════════════════════
+function compartir() {
+  var url = window.location.href;
+  if (navigator.share) {
+    navigator.share({ title: 'Interika · ' + proyecto.nombre, url: url }).catch(function(){});
+  } else if (navigator.clipboard) {
+    navigator.clipboard.writeText(url).then(function() {
+      var btn = document.querySelector('.btn-share');
+      var orig = btn.innerHTML;
+      btn.textContent = '✓  Copiado';
+      setTimeout(function() { btn.innerHTML = orig; }, 2000);
+    });
+  }
 }
 </script>
 </body>
