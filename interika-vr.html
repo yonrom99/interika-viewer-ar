@@ -1,397 +1,247 @@
 <!DOCTYPE html>
 <html lang="es">
 <head>
-  <meta charset="UTF-8" />
-  <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover" />
-  <meta name="apple-mobile-web-app-capable" content="yes" />
-  <meta name="mobile-web-app-capable" content="yes" />
+  <meta charset="UTF-8"/>
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover"/>
   <title>Interika · Visualización Inmersiva</title>
-  <script src="https://cdnjs.cloudflare.com/ajax/libs/aframe/1.5.0/aframe.min.js"></script>
+
+  <!--
+    Pannellum en lugar de A-Frame para el Tour 360°.
+    Razones:
+    - Maneja CORS automáticamente via proxy interno
+    - No tiene problema con display:none
+    - El botón de pantalla completa / VR funciona de fábrica
+    - Hotspots nativos, sin matemáticas de esferas
+    - Cero dependencia de sensores para arrancar
+  -->
+  <link  rel="stylesheet" href="https://cdn.jsdelivr.net/npm/pannellum@2.5.6/build/pannellum.css"/>
+  <script src="https://cdn.jsdelivr.net/npm/pannellum@2.5.6/build/pannellum.js"></script>
+
   <style>
-    @import url('https://fonts.googleapis.com/css2?family=Cormorant+Garamond:ital,wght@0,300;0,400;1,300&family=Montserrat:wght@200;300;400;500&display=swap');
+    @import url('https://fonts.googleapis.com/css2?family=Cormorant+Garamond:ital,wght@0,300;1,300&family=Montserrat:wght@300;400;500&display=swap');
 
-    *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+    *{box-sizing:border-box;margin:0;padding:0}
+    :root{
+      --negro:#09090b;--blanco:#f5f2ee;
+      --arena:#c8b89a;--arena2:#8a7a64;
+      --borde:rgba(200,184,154,0.22);
+    }
+    html,body{height:100%;width:100%;overflow:hidden;background:var(--negro);font-family:'Montserrat',sans-serif}
 
-    :root {
-      --negro:  #09090b;
-      --blanco: #f5f2ee;
-      --arena:  #c8b89a;
-      --arena2: #8a7a64;
-      --borde:  rgba(200,184,154,0.22);
-    }
+    /* ── PANNELLUM ocupa todo ── */
+    #panorama{position:fixed;inset:0;display:none}
+    #panorama.show{display:block}
 
-    html, body {
-      height: 100%; width: 100%;
-      overflow: hidden;
-      background: var(--negro);
-      font-family: 'Montserrat', sans-serif;
-      color: var(--blanco);
-    }
-
-    /*
-      CLAVE: La escena A-Frame NUNCA puede tener display:none.
-      Si se oculta con display:none, el renderer de WebGL no inicializa
-      y nunca dispara el evento 'loaded'. Se oculta con opacity:0.
-    */
-    #escena-base {
-      position: fixed;
-      inset: 0;
-      opacity: 0;
-      pointer-events: none;
-      transition: opacity 0.6s ease;
-    }
-    #escena-base.activa {
-      opacity: 1;
-      pointer-events: all;
-    }
-
-    a-scene {
-      width: 100% !important;
-      height: 100% !important;
-      display: block !important;
-    }
+    /* Ocultar controles default de Pannellum (usamos los nuestros) */
+    .pnlm-controls-container{display:none!important}
+    .pnlm-about-msg{display:none!important}
 
     /* ── SPLASH ── */
-    #splash {
-      position: fixed; inset: 0;
-      background: var(--negro);
-      display: flex; flex-direction: column;
-      align-items: center; justify-content: center;
-      z-index: 9999;
-      transition: opacity 0.5s ease;
+    #splash{
+      position:fixed;inset:0;z-index:999;background:var(--negro);
+      display:flex;flex-direction:column;align-items:center;justify-content:center;
+      transition:opacity .4s ease
     }
-    #splash.oculto {
-      opacity: 0;
-      pointer-events: none;
-    }
+    #splash.hide{opacity:0;pointer-events:none}
 
-    .s-logo {
-      font-family: 'Cormorant Garamond', serif;
-      font-size: clamp(26px, 7vw, 38px);
-      font-weight: 300; letter-spacing: .18em;
-      color: var(--arena);
-      animation: fadeUp 1s .1s both;
+    .logo{
+      font-family:'Cormorant Garamond',serif;
+      font-size:clamp(28px,8vw,42px);font-weight:300;
+      letter-spacing:.2em;color:var(--arena);margin-bottom:6px
     }
-    .s-divider {
-      width: 40px; height: 1px;
-      background: var(--arena2);
-      margin: 20px 0;
-      animation: fadeUp 1s .2s both;
+    .sub{font-size:9px;font-weight:300;color:var(--arena2);letter-spacing:.45em;text-transform:uppercase;margin-bottom:28px}
+    .proy-nombre{
+      font-family:'Cormorant Garamond',serif;
+      font-size:clamp(18px,5vw,26px);font-weight:300;font-style:italic;
+      color:var(--blanco);margin-bottom:4px
     }
-    .s-titulo {
-      font-family: 'Cormorant Garamond', serif;
-      font-size: clamp(20px, 6vw, 30px);
-      font-weight: 300; font-style: italic;
-      color: var(--blanco); letter-spacing: .06em;
-      text-align: center;
-      animation: fadeUp 1s .3s both;
+    .proy-tipo{font-size:8px;color:var(--arena2);letter-spacing:.35em;text-transform:uppercase;margin-bottom:32px}
+
+    .btn-ingresar{
+      padding:14px 52px;border:1px solid var(--arena);background:transparent;
+      color:var(--arena);font-family:'Montserrat',sans-serif;
+      font-size:9px;font-weight:400;letter-spacing:.35em;text-transform:uppercase;
+      cursor:pointer;transition:all .25s
     }
-    .s-subtipo {
-      font-size: 9px; font-weight: 300;
-      color: var(--arena2); letter-spacing: .4em;
-      text-transform: uppercase; margin-top: 6px;
-      animation: fadeUp 1s .4s both;
-    }
-    .s-modos {
-      display: flex; gap: 12px;
-      margin-top: 36px;
-      animation: fadeUp 1s .5s both;
-    }
-    .s-modo-btn {
-      display: flex; flex-direction: column;
-      align-items: center; gap: 8px;
-      padding: 16px 18px;
-      border: 1px solid var(--borde);
-      background: transparent;
-      cursor: pointer;
-      transition: all .25s ease;
-      color: var(--blanco);
-      font-family: 'Montserrat', sans-serif;
-      min-width: 115px;
-    }
-    .s-modo-btn:hover, .s-modo-btn.activo {
-      border-color: var(--arena);
-      background: rgba(200,184,154,.08);
-    }
-    .s-modo-icono { font-size: 22px; }
-    .s-modo-label {
-      font-size: 8px; font-weight: 400;
-      letter-spacing: .3em; text-transform: uppercase;
-      color: var(--arena);
-    }
-    .s-modo-desc {
-      font-size: 9px; font-weight: 300;
-      color: var(--arena2); text-align: center; line-height: 1.5;
-    }
-    .s-btn-entrar {
-      margin-top: 30px;
-      padding: 13px 44px;
-      background: transparent;
-      border: 1px solid var(--arena);
-      color: var(--arena);
-      font-family: 'Montserrat', sans-serif;
-      font-size: 9px; font-weight: 400;
-      letter-spacing: .3em; text-transform: uppercase;
-      cursor: pointer;
-      transition: all .25s ease;
-      animation: fadeUp 1s .6s both;
-    }
-    .s-btn-entrar:hover { background: var(--arena); color: var(--negro); }
-    .s-nota {
-      margin-top: 16px;
-      font-size: 9px; font-weight: 300;
-      color: var(--arena2); letter-spacing: .2em;
-      text-transform: uppercase;
-      animation: fadeUp 1s .7s both;
-    }
+    .btn-ingresar:hover{background:var(--arena);color:var(--negro)}
+    .btn-ingresar:active{transform:scale(.98)}
+
+    .nota{font-size:8px;color:var(--arena2);letter-spacing:.2em;text-transform:uppercase;margin-top:14px;text-align:center;padding:0 20px}
 
     /* ── CARGANDO ── */
-    #cargando {
-      position: fixed; inset: 0;
-      background: var(--negro);
-      display: flex; flex-direction: column;
-      align-items: center; justify-content: center;
-      z-index: 9998;
-      opacity: 0;
-      pointer-events: none;
-      transition: opacity 0.3s ease;
+    #cargando{
+      position:fixed;inset:0;z-index:998;background:var(--negro);
+      display:none;flex-direction:column;align-items:center;justify-content:center
     }
-    #cargando.visible {
-      opacity: 1;
-      pointer-events: all;
+    #cargando.show{display:flex}
+    .spinner{
+      width:32px;height:32px;border:1px solid var(--borde);
+      border-top-color:var(--arena);border-radius:50%;
+      animation:giro 1s linear infinite;margin-bottom:14px
     }
-    .spinner {
-      width: 36px; height: 36px;
-      border: 1px solid var(--borde);
-      border-top-color: var(--arena);
-      border-radius: 50%;
-      animation: giro 1.1s linear infinite;
-      margin-bottom: 16px;
+    @keyframes giro{to{transform:rotate(360deg)}}
+    .carga-txt{font-size:9px;font-weight:300;color:var(--arena2);letter-spacing:.35em;text-transform:uppercase}
+
+    /* ── ERROR ── */
+    #error-msg{
+      position:fixed;inset:0;z-index:997;background:var(--negro);
+      display:none;flex-direction:column;align-items:center;justify-content:center;
+      text-align:center;padding:40px
     }
-    @keyframes giro { to { transform: rotate(360deg); } }
-    .carga-txt {
-      font-size: 9px; font-weight: 300;
-      color: var(--arena2); letter-spacing: .35em;
-      text-transform: uppercase;
+    #error-msg.show{display:flex}
+    .error-ico{font-size:32px;margin-bottom:16px;opacity:.5}
+    .error-titulo{font-family:'Cormorant Garamond',serif;font-size:22px;font-weight:300;color:var(--blanco);margin-bottom:10px}
+    .error-txt{font-size:11px;font-weight:300;color:var(--arena2);line-height:1.8;max-width:300px}
+    .error-btn{
+      margin-top:24px;padding:11px 32px;border:1px solid var(--arena);background:transparent;
+      color:var(--arena);font-family:'Montserrat',sans-serif;font-size:9px;
+      letter-spacing:.3em;text-transform:uppercase;cursor:pointer;transition:all .2s
     }
+    .error-btn:hover{background:var(--arena);color:var(--negro)}
 
     /* ── UI OVERLAY ── */
-    #ui {
-      position: fixed; inset: 0;
-      pointer-events: none;
-      z-index: 100;
-      opacity: 0;
-      transition: opacity 0.5s ease;
-    }
-    #ui.visible { opacity: 1; }
+    #ui{position:fixed;inset:0;z-index:100;pointer-events:none;opacity:0;transition:opacity .4s}
+    #ui.show{opacity:1}
 
-    .ui-top {
-      position: absolute; top: 0; left: 0; right: 0;
-      padding: max(18px, env(safe-area-inset-top)) 20px 18px;
-      background: linear-gradient(to bottom, rgba(9,9,11,.8) 0%, transparent 100%);
-      display: flex; justify-content: space-between; align-items: flex-start;
+    .ui-header{
+      position:absolute;top:0;left:0;right:0;
+      padding:max(16px,env(safe-area-inset-top)) 20px 18px;
+      background:linear-gradient(to bottom,rgba(9,9,11,.85) 0%,transparent 100%);
+      display:flex;justify-content:space-between;align-items:flex-start
     }
-    .ui-marca {
-      font-family: 'Cormorant Garamond', serif;
-      font-size: 16px; font-weight: 300;
-      color: var(--arena); letter-spacing: .12em;
-    }
-    .ui-proyecto { text-align: right; }
-    .ui-proyecto-nombre {
-      font-family: 'Cormorant Garamond', serif;
-      font-size: 15px; font-weight: 300; color: var(--blanco);
-    }
-    .ui-proyecto-tipo {
-      font-size: 8px; font-weight: 300;
-      color: var(--arena2); letter-spacing: .35em;
-      text-transform: uppercase; margin-top: 2px;
-    }
+    .ui-logo{font-family:'Cormorant Garamond',serif;font-size:16px;font-weight:300;color:var(--arena);letter-spacing:.15em}
+    .ui-der{text-align:right}
+    .ui-pnombre{font-family:'Cormorant Garamond',serif;font-size:15px;font-weight:300;color:var(--blanco)}
+    .ui-ptipo{font-size:8px;color:var(--arena2);letter-spacing:.35em;text-transform:uppercase;margin-top:2px}
 
-    .ui-bottom {
-      position: absolute; bottom: 0; left: 0; right: 0;
-      padding: 16px 20px max(24px, env(safe-area-inset-bottom));
-      background: linear-gradient(to top, rgba(9,9,11,.85) 0%, transparent 100%);
-      pointer-events: all;
+    .ui-footer{
+      position:absolute;bottom:0;left:0;right:0;
+      padding:16px 20px max(22px,env(safe-area-inset-bottom));
+      background:linear-gradient(to top,rgba(9,9,11,.9) 0%,transparent 100%);
+      pointer-events:all
     }
-    .ui-escena-actual { text-align: center; margin-bottom: 10px; }
-    .ui-escena-nombre {
-      font-family: 'Cormorant Garamond', serif;
-      font-size: 18px; font-weight: 300; font-style: italic;
-      color: var(--blanco);
+    #bloque-esc{text-align:center;margin-bottom:12px}
+    #esc-nombre{
+      font-family:'Cormorant Garamond',serif;
+      font-size:20px;font-weight:300;font-style:italic;color:var(--blanco)
     }
-    .ui-escena-num {
-      font-size: 8px; font-weight: 300;
-      color: var(--arena2); letter-spacing: .3em;
-      text-transform: uppercase; margin-top: 3px;
-    }
-    .ui-miniaturas {
-      display: flex; gap: 8px; justify-content: center;
-      margin-bottom: 10px; overflow-x: auto; scrollbar-width: none;
-    }
-    .ui-miniaturas::-webkit-scrollbar { display: none; }
-    .miniatura {
-      width: 34px; height: 34px;
-      border: 1px solid var(--borde);
-      cursor: pointer; transition: all .2s;
-      flex-shrink: 0; background: #1a1a1a;
-      display: flex; align-items: center; justify-content: center;
-      font-size: 9px; color: var(--arena2);
-      font-family: 'Montserrat', sans-serif;
-    }
-    .miniatura.activa { border-color: var(--arena); color: var(--arena); }
+    #esc-num{font-size:8px;color:var(--arena2);letter-spacing:.3em;text-transform:uppercase;margin-top:3px}
 
-    .ui-acciones {
-      display: flex; gap: 10px; justify-content: center;
+    #miniaturas{
+      display:flex;gap:8px;justify-content:center;
+      margin-bottom:12px;overflow-x:auto;scrollbar-width:none
     }
-    .btn-vr {
-      display: flex; align-items: center; gap: 7px;
-      padding: 12px 20px;
-      background: var(--arena); border: none;
-      color: var(--negro);
-      font-family: 'Montserrat', sans-serif;
-      font-size: 9px; font-weight: 500;
-      letter-spacing: .25em; text-transform: uppercase;
-      cursor: pointer; transition: all .2s ease;
+    #miniaturas::-webkit-scrollbar{display:none}
+    .mini{
+      width:34px;height:34px;border:1px solid var(--borde);background:#161616;
+      display:flex;align-items:center;justify-content:center;
+      font-size:9px;color:var(--arena2);cursor:pointer;transition:all .2s;flex-shrink:0
     }
-    .btn-vr:hover { background: var(--blanco); }
-    .btn-ghost {
-      display: flex; align-items: center; gap: 7px;
-      padding: 12px 20px;
-      background: transparent; border: 1px solid var(--borde);
-      color: var(--blanco);
-      font-family: 'Montserrat', sans-serif;
-      font-size: 9px; font-weight: 300;
-      letter-spacing: .25em; text-transform: uppercase;
-      cursor: pointer; transition: all .2s ease;
-    }
-    .btn-ghost:hover { border-color: var(--arena); color: var(--arena); }
-    .ui-hint {
-      text-align: center; margin-top: 8px;
-      font-size: 8px; font-weight: 300;
-      color: var(--arena2); letter-spacing: .25em; text-transform: uppercase;
-    }
+    .mini.sel{border-color:var(--arena);color:var(--arena)}
 
-    #badge-vr {
-      position: fixed;
-      top: max(14px, env(safe-area-inset-top));
-      left: 50%; transform: translateX(-50%);
-      background: rgba(9,9,11,.8);
-      border: 1px solid var(--borde);
-      padding: 7px 18px;
-      display: none; align-items: center; gap: 8px;
-      z-index: 200;
-    }
-    #badge-vr.visible { display: flex; }
-    .vr-dot {
-      width: 6px; height: 6px; border-radius: 50%;
-      background: var(--arena);
-      animation: blink 1.5s infinite;
-    }
-    @keyframes blink { 0%,100%{opacity:1} 50%{opacity:.15} }
-    .vr-badge-txt {
-      font-size: 8px; font-weight: 300;
-      color: var(--blanco); letter-spacing: .3em; text-transform: uppercase;
-    }
+    .acciones{display:flex;gap:10px;justify-content:center}
 
-    @keyframes fadeUp {
-      from { opacity:0; transform:translateY(14px); }
-      to   { opacity:1; transform:translateY(0); }
+    .btn-vr{
+      display:flex;align-items:center;gap:7px;
+      padding:12px 22px;background:var(--arena);border:none;
+      color:var(--negro);font-family:'Montserrat',sans-serif;
+      font-size:9px;font-weight:500;letter-spacing:.25em;text-transform:uppercase;
+      cursor:pointer;transition:all .2s
+    }
+    .btn-vr:hover{background:var(--blanco)}
+    .btn-vr:active{transform:scale(.97)}
+
+    .btn-share{
+      display:flex;align-items:center;gap:7px;
+      padding:12px 20px;background:transparent;border:1px solid var(--borde);
+      color:var(--blanco);font-family:'Montserrat',sans-serif;
+      font-size:9px;font-weight:300;letter-spacing:.25em;text-transform:uppercase;
+      cursor:pointer;transition:all .2s
+    }
+    .btn-share:hover{border-color:var(--arena);color:var(--arena)}
+
+    .ui-hint{text-align:center;margin-top:9px;font-size:8px;color:var(--arena2);letter-spacing:.25em;text-transform:uppercase}
+
+    /* Badge VR */
+    #badge-vr{
+      position:fixed;z-index:200;
+      top:max(14px,env(safe-area-inset-top));
+      left:50%;transform:translateX(-50%);
+      background:rgba(9,9,11,.85);border:1px solid var(--borde);
+      padding:7px 18px;display:none;align-items:center;gap:8px;
+      font-family:'Montserrat',sans-serif;font-size:8px;color:var(--blanco);
+      letter-spacing:.3em;text-transform:uppercase;white-space:nowrap
+    }
+    #badge-vr.show{display:flex}
+    .vr-dot{width:5px;height:5px;border-radius:50%;background:var(--arena);animation:par 1.5s infinite}
+    @keyframes par{0%,100%{opacity:1}50%{opacity:.1}}
+
+    /* Hotspot custom de Pannellum */
+    .hs-custom{
+      width:36px;height:36px;cursor:pointer;
+      position:relative;display:flex;align-items:center;justify-content:center
+    }
+    .hs-ring{
+      position:absolute;inset:0;border:1.5px solid var(--arena);border-radius:50%;
+      animation:rotar 8s linear infinite;opacity:.85
+    }
+    @keyframes rotar{to{transform:rotate(360deg)}}
+    .hs-dot{width:8px;height:8px;background:var(--arena);border-radius:50%}
+    .hs-label{
+      position:absolute;bottom:calc(100% + 4px);left:50%;transform:translateX(-50%);
+      font-family:'Montserrat',sans-serif;font-size:9px;font-weight:300;
+      color:var(--blanco);white-space:nowrap;
+      background:rgba(9,9,11,.75);padding:3px 8px;letter-spacing:.1em
     }
   </style>
 </head>
 <body>
 
-<!-- ══ ESCENA A-FRAME — PRIMERO EN EL DOM, SIEMPRE VISIBLE ══
-     Está debajo del splash por z-index, pero el renderer
-     necesita estar en un elemento visible para inicializar. -->
-<div id="escena-base">
-  <a-scene
-    id="escena"
-    vr-mode-ui="enabled: false"
-    webxr="optionalFeatures: dom-overlay; overlayElement: #badge-vr"
-    renderer="antialias: true; colorManagement: true"
-    loading-screen="enabled: false"
-  >
-    <a-assets id="assets" timeout="15000"></a-assets>
-    <a-sky id="sky" src="" color="#09090b" rotation="0 -90 0"></a-sky>
+<!-- ── CONTENEDOR PANNELLUM ── -->
+<div id="panorama"></div>
 
-    <a-entity id="rig" position="0 1.6 0">
-      <a-camera
-        id="cam"
-        look-controls="pointerLockEnabled: false; magicWindowTrackingEnabled: true"
-        wasd-controls="enabled: false"
-        fov="75"
-      >
-        <a-cursor
-          id="cursor"
-          fuse="true"
-          fuse-timeout="1500"
-          color="#c8b89a"
-          opacity="0.8"
-          raycaster="objects: .hs"
-          visible="false"
-        ></a-cursor>
-      </a-camera>
-    </a-entity>
-
-    <a-entity id="hotspots"></a-entity>
-
-    <a-entity id="modelo-libre" visible="false">
-      <a-entity id="modelo-gltf" gltf-model="" position="0 0 0" scale="1 1 1"></a-entity>
-    </a-entity>
-
-    <a-light type="ambient" color="#ffffff" intensity="0.9"></a-light>
-    <a-light type="directional" position="2 4 3" intensity="0.5"></a-light>
-  </a-scene>
-</div>
-
-<!-- ══ SPLASH ══ -->
+<!-- ── SPLASH ── -->
 <div id="splash">
-  <p class="s-logo">INTERIKA</p>
-  <div class="s-divider"></div>
-  <p class="s-titulo" id="s-nombre">Casa Prisma</p>
-  <p class="s-subtipo">Experiencia inmersiva</p>
-
-  <div class="s-modos" id="selector-modos">
-    <button class="s-modo-btn activo" id="btn-360" onclick="seleccionarModo('360')">
-      <span class="s-modo-icono">◉</span>
-      <span class="s-modo-label">Tour 360°</span>
-      <span class="s-modo-desc">Recorre el espacio<br>foto a foto</span>
-    </button>
-    <button class="s-modo-btn" id="btn-libre" onclick="seleccionarModo('libre')">
-      <span class="s-modo-icono">⬡</span>
-      <span class="s-modo-label">Recorrido libre</span>
-      <span class="s-modo-desc">Camina por el<br>modelo 3D</span>
-    </button>
-  </div>
-
-    <button class="s-btn-entrar" onclick="entrar()">Ingresar</button>
-  <p class="s-nota">Inclina el cel para mirar · Activa VR para lentes</p>
+  <p class="logo">INTERIKA</p>
+  <p class="sub">Experiencia inmersiva</p>
+  <p class="proy-nombre" id="txt-nombre">Cargando...</p>
+  <p class="proy-tipo" id="txt-tipo">Tour 360°</p>
+  <button class="btn-ingresar" id="btn-entrar" onclick="entrar()" disabled style="opacity:.5">
+    Cargando proyecto...
+  </button>
+  <p class="nota">Arrastra para explorar · Pincha hotspots para navegar · VR disponible</p>
 </div>
 
-<!-- ══ CARGANDO ══ -->
+<!-- ── CARGANDO ── -->
 <div id="cargando">
   <div class="spinner"></div>
-  <p class="carga-txt">Preparando experiencia</p>
+  <p class="carga-txt" id="carga-txt">Cargando proyecto</p>
 </div>
 
-<!-- ══ UI OVERLAY ══ -->
+<!-- ── ERROR ── -->
+<div id="error-msg">
+  <div class="error-ico">◻</div>
+  <h2 class="error-titulo">No se pudo cargar</h2>
+  <p class="error-txt" id="error-detalle">No se encontró el proyecto. Verifica el link.</p>
+  <button class="error-btn" onclick="location.reload()">Reintentar</button>
+</div>
+
+<!-- ── UI OVERLAY ── -->
 <div id="ui">
-  <div class="ui-top">
-    <span class="ui-marca">INTERIKA</span>
-    <div class="ui-proyecto">
-      <p class="ui-proyecto-nombre" id="ui-nombre">Casa Prisma</p>
-      <p class="ui-proyecto-tipo" id="ui-tipo">Tour 360°</p>
+  <div class="ui-header">
+    <span class="ui-logo">INTERIKA</span>
+    <div class="ui-der">
+      <p class="ui-pnombre" id="ui-nombre"></p>
+      <p class="ui-ptipo"   id="ui-tipo">Tour 360°</p>
     </div>
   </div>
-
-  <div class="ui-bottom">
-    <div class="ui-escena-actual" id="bloque-escena">
-      <p class="ui-escena-nombre" id="ui-esc-nombre">Sala principal</p>
-      <p class="ui-escena-num" id="ui-esc-num">1 / 3</p>
+  <div class="ui-footer">
+    <div id="bloque-esc">
+      <p id="esc-nombre"></p>
+      <p id="esc-num"></p>
     </div>
-    <div class="ui-miniaturas" id="miniaturas"></div>
-    <div class="ui-acciones" style="margin-top:10px;">
+    <div id="miniaturas"></div>
+    <div class="acciones">
       <button class="btn-vr" onclick="activarVR()">
         <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5">
           <path d="M2 12s3-7 10-7 10 7 10 7-3 7-10 7-10-7-10-7z"/>
@@ -399,7 +249,7 @@
         </svg>
         Ver en lentes VR
       </button>
-      <button class="btn-ghost" onclick="compartir()">
+      <button class="btn-share" onclick="compartir()">
         <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5">
           <path d="M4 12v8a2 2 0 002 2h12a2 2 0 002-2v-8"/>
           <polyline points="16 6 12 2 8 6"/>
@@ -408,292 +258,269 @@
         Compartir
       </button>
     </div>
-    <p class="ui-hint" id="ui-hint">Inclina el cel para explorar</p>
+    <p class="ui-hint">Arrastra para girar · Pellizca para zoom · Toca hotspots para navegar</p>
   </div>
 </div>
 
 <div id="badge-vr">
-  <div class="vr-dot"></div>
-  <span class="vr-badge-txt">Modo VR · INTERIKA</span>
+  <div class="vr-dot"></div>Modo VR · INTERIKA
 </div>
 
 <script>
-// ══════════════════════════════════════════════════════════
-//  CONFIG
-// ══════════════════════════════════════════════════════════
-const P = new URLSearchParams(window.location.search);
+// ═══════════════════════════════════════════════════════════════
+//  PARÁMETROS DE URL
+// ═══════════════════════════════════════════════════════════════
+var P      = new URLSearchParams(window.location.search);
+var TOUR   = P.get('tour');    // ID del tour en Supabase: ?tour=casa-prisma
+var NOMBRE = P.get('nombre');  // Nombre directo: ?nombre=Casa+Prisma (fallback)
 
-const CFG = {
-  nombre: P.get('nombre') || 'Casa Prisma',
-  modo:   P.get('modo')   || null,
-  modelo: P.get('modelo') || '',
+// URL base de tu Supabase — ajusta si cambia
+var SUPABASE_URL = 'https://nnfsyqbijkygmkymcexu.supabase.co/storage/v1/object/public/interika-360';
 
-  // Placeholders — reemplazar con fetch a config.json de Supabase
+// ═══════════════════════════════════════════════════════════════
+//  DATOS DEL PROYECTO
+//  Se cargan desde Supabase si viene ?tour=ID
+//  Si no, usan el placeholder de demostración
+// ═══════════════════════════════════════════════════════════════
+var proyecto = null;
+var viewer   = null;
+var escenaActual = 0;
+
+// Placeholder de demostración (imágenes públicas con CORS abierto)
+var DEMO = {
+  nombre: NOMBRE || 'Casa Prisma',
   escenas: [
     {
-      id: 'sala', nombre: 'Sala principal',
-      img: 'https://cdn.aframe.io/360-image-gallery-boilerplate/img/city.jpg',
+      nombre: 'Sala principal',
+      // Imágenes de pixabay/wikimedia con CORS abierto — reemplazar con las tuyas de Supabase
+      imagen: 'https://pannellum.org/images/alma.jpg',
       hotspots: [
-        { yaw: 40,  pitch: -8, destino: 'cocina',  label: 'Cocina' },
-        { yaw: -80, pitch: -5, destino: 'recamara', label: 'Recámara' }
+        { pitch: -5,  yaw:  80, destino: 1, label: 'Cocina' },
+        { pitch: -5,  yaw: -60, destino: 2, label: 'Recámara' }
       ]
     },
     {
-      id: 'cocina', nombre: 'Cocina',
-      img: 'https://cdn.aframe.io/360-image-gallery-boilerplate/img/sechelt.jpg',
+      nombre: 'Cocina',
+      imagen: 'https://pannellum.org/images/cerro-toco-0.jpg',
       hotspots: [
-        { yaw: 180, pitch: -8, destino: 'sala', label: 'Sala' }
+        { pitch: -5, yaw: 180, destino: 0, label: 'Sala' }
       ]
     },
     {
-      id: 'recamara', nombre: 'Recámara principal',
-      img: 'https://cdn.aframe.io/360-image-gallery-boilerplate/img/louvre.jpg',
+      nombre: 'Recámara principal',
+      imagen: 'https://pannellum.org/images/jfk.jpg',
       hotspots: [
-        { yaw: 90, pitch: -8, destino: 'sala', label: 'Sala' }
+        { pitch: -5, yaw: 90, destino: 0, label: 'Sala' }
       ]
     }
-  ],
-
-  modeloLibre: P.get('modelo') || 'https://modelviewer.dev/shared-assets/models/Astronaut.glb'
+  ]
 };
 
-// ══════════════════════════════════════════════════════════
-//  ESTADO
-// ══════════════════════════════════════════════════════════
-let modo = CFG.modo || '360';
-let pasoBuffer = [], ultimoPaso = 0;
+// ═══════════════════════════════════════════════════════════════
+//  ARRANQUE: cargar config desde Supabase o usar demo
+// ═══════════════════════════════════════════════════════════════
+(function init() {
+  if (TOUR) {
+    // Cargar config.json desde Supabase
+    var url = SUPABASE_URL + '/' + TOUR + '/config.json';
+    document.getElementById('carga-txt').textContent = 'Cargando proyecto';
+    document.getElementById('cargando').classList.add('show');
 
-// Nombres
-document.getElementById('s-nombre').textContent  = CFG.nombre;
-document.getElementById('ui-nombre').textContent = CFG.nombre;
+    fetch(url)
+      .then(function(r) {
+        if (!r.ok) throw new Error('HTTP ' + r.status);
+        return r.json();
+      })
+      .then(function(data) {
+        proyecto = data;
+        document.getElementById('cargando').classList.remove('show');
+        listo();
+      })
+      .catch(function(e) {
+        console.warn('config.json no encontrado, usando demo:', e);
+        // Si no hay config, cae al demo
+        proyecto = DEMO;
+        document.getElementById('cargando').classList.remove('show');
+        listo();
+      });
+  } else {
+    // Sin ?tour=, usar demo directamente
+    proyecto = DEMO;
+    listo();
+  }
+})();
 
-// Si el link trae ?modo=, ocultar selector
-if (CFG.modo) {
-  document.getElementById('selector-modos').style.display = 'none';
-  modo = CFG.modo;
+function listo() {
+  // Poner nombre en splash
+  document.getElementById('txt-nombre').textContent = proyecto.nombre;
+  document.getElementById('ui-nombre').textContent  = proyecto.nombre;
+
+  // Habilitar botón
+  var btn = document.getElementById('btn-entrar');
+  btn.disabled = false;
+  btn.style.opacity = '1';
+  btn.textContent = 'Ingresar';
 }
 
-// ══════════════════════════════════════════════════════════
-//  SELECTOR DE MODO
-// ══════════════════════════════════════════════════════════
-function seleccionarModo(m) {
-  modo = m;
-  document.getElementById('btn-360').classList.toggle('activo', m === '360');
-  document.getElementById('btn-libre').classList.toggle('activo', m === 'libre');
-}
-
-// ══════════════════════════════════════════════════════════
-//  ENTRAR — lógica directa, sin esperar eventos de A-Frame
-// ══════════════════════════════════════════════════════════
+// ═══════════════════════════════════════════════════════════════
+//  ENTRAR — sin sensores, sin eventos de carga, directo
+// ═══════════════════════════════════════════════════════════════
 function entrar() {
-  // 1. Ocultar splash y mostrar escena
-  document.getElementById('splash').classList.add('oculto');
-  document.getElementById('escena-base').classList.add('activa');
-  
-  // 2. FORZAR IMAGEN (Esto elimina el fondo negro)
-  const sky = document.getElementById('sky');
-  sky.setAttribute('src', 'https://cdn.aframe.io/360-image-gallery-boilerplate/img/city.jpg');
-  sky.setAttribute('color', '#fff');
+  // 1. Ocultar splash inmediatamente
+  document.getElementById('splash').classList.add('hide');
 
-  // 3. Arrancar lógica
-  if (modo === '360') {
-    arrancar360();
-  } else {
-    arrancarLibre();
-  }
+  // 2. Mostrar panorama
+  document.getElementById('panorama').classList.add('show');
 
-  // 4. Permisos de giro (Para que se mueva al rotar el cel)
-  if (typeof DeviceOrientationEvent !== 'undefined' && typeof DeviceOrientationEvent.requestPermission === 'function') {
-    DeviceOrientationEvent.requestPermission().catch(console.error);
-  }
-  
-  // 5. Mostrar botones
-  document.getElementById('ui').classList.add('visible');
+  // 3. Inicializar Pannellum con la primera escena
+  cargarEscena(0);
+
+  // 4. Construir miniaturas
+  construirMiniaturas();
+
+  // 5. Mostrar UI
+  document.getElementById('ui').classList.add('show');
 }
 
-  // Permiso giroscopio iOS 13+
-  if (typeof DeviceOrientationEvent !== 'undefined' &&
-      typeof DeviceOrientationEvent.requestPermission === 'function') {
-    DeviceOrientationEvent.requestPermission().then(initScene).catch(initScene);
-  } else {
-    initScene();
+// ═══════════════════════════════════════════════════════════════
+//  PANNELLUM — cargar escena
+// ═══════════════════════════════════════════════════════════════
+function cargarEscena(idx) {
+  escenaActual = idx;
+  var esc = proyecto.escenas[idx];
+
+  // Actualizar UI
+  document.getElementById('esc-nombre').textContent = esc.nombre;
+  document.getElementById('esc-num').textContent    = (idx+1) + ' / ' + proyecto.escenas.length;
+  document.querySelectorAll('.mini').forEach(function(m, i) {
+    m.classList.toggle('sel', i === idx);
+  });
+
+  // Destruir viewer anterior si existe
+  if (viewer) {
+    try { viewer.destroy(); } catch(e) {}
+    viewer = null;
   }
+
+  // Construir hotspots para Pannellum
+  var hotspots = (esc.hotspots || []).map(function(h) {
+    return {
+      pitch:    h.pitch || -5,
+      yaw:      h.yaw   || 0,
+      type:    'custom',
+      text:     h.label || '',
+      cssClass: 'hs-custom',
+      createTooltipFunc: function(hotspot, args) {
+        var div = document.createElement('div');
+        div.className = 'hs-custom';
+        div.innerHTML =
+          '<div class="hs-ring"></div>' +
+          '<div class="hs-dot"></div>' +
+          '<div class="hs-label">' + args.label + '</div>';
+        hotspot.appendChild(div);
+      },
+      createTooltipArgs: { label: h.label, destino: h.destino },
+      clickHandlerFunc: function(e, args) {
+        cargarEscena(args.destino);
+      },
+      clickHandlerArgs: { destino: h.destino, label: h.label }
+    };
+  });
+
+  // Crear nuevo viewer
+  viewer = pannellum.viewer('panorama', {
+    type:          'equirectangular',
+    panorama:       esc.imagen,
+    autoLoad:       true,
+    showControls:   false,   // usamos nuestra propia UI
+    compass:        false,
+    hotSpots:       hotspots,
+    hfov:           100,
+    minHfov:        50,
+    maxHfov:        120,
+    autoRotate:    -2,        // rotación suave automática
+    autoRotateInactivityDelay: 3000,
+    uiText: { loadButtonLabel: '' }
+  });
 }
 
-// ══════════════════════════════════════════════════════════
-//  MODO 360
-// ══════════════════════════════════════════════════════════
-function arrancar360() {
-  document.getElementById('ui-tipo').textContent = 'Tour 360°';
-  document.getElementById('ui-hint').textContent = 'Inclina el cel · Mira 1.5s un punto para navegar';
-  document.getElementById('cursor').setAttribute('visible', 'true');
-  document.getElementById('modelo-libre').setAttribute('visible', 'false');
-
-  const cont = document.getElementById('miniaturas');
+// ═══════════════════════════════════════════════════════════════
+//  MINIATURAS
+// ═══════════════════════════════════════════════════════════════
+function construirMiniaturas() {
+  var cont = document.getElementById('miniaturas');
   cont.innerHTML = '';
-  CFG.escenas.forEach((e, i) => {
-    const el = document.createElement('div');
-    el.className = 'miniatura' + (i === 0 ? ' activa' : '');
-    el.title = e.nombre;
+  proyecto.escenas.forEach(function(e, i) {
+    var el = document.createElement('div');
+    el.className = 'mini' + (i === 0 ? ' sel' : '');
     el.textContent = i + 1;
-    el.onclick = () => irA(e.id);
+    el.title = e.nombre;
+    el.onclick = (function(idx) { return function() { cargarEscena(idx); }; })(i);
     cont.appendChild(el);
   });
-
-  irA(CFG.escenas[0].id);
 }
 
-function irA(id) {
-  const esc = CFG.escenas.find(e => e.id === id);
-  if (!esc) return;
-  const idx = CFG.escenas.indexOf(esc);
-
-  document.getElementById('sky').setAttribute('color', '#ffffff');
-  document.getElementById('sky').setAttribute('src', esc.img);
-  document.getElementById('ui-esc-nombre').textContent = esc.nombre;
-  document.getElementById('ui-esc-num').textContent    = `${idx+1} / ${CFG.escenas.length}`;
-  document.querySelectorAll('.miniatura').forEach((m, i) => {
-    m.classList.toggle('activa', i === idx);
-  });
-
-  ponerHotspots(esc.hotspots);
-
-  // Quitar loading y mostrar UI
-  document.getElementById('cargando').classList.remove('visible');
-  document.getElementById('ui').classList.add('visible');
-}
-
-function ponerHotspots(lista) {
-  const cont = document.getElementById('hotspots');
-  while (cont.firstChild) cont.removeChild(cont.firstChild);
-
-  lista.forEach(h => {
-    const phi   = (90 - h.pitch) * (Math.PI / 180);
-    const theta = (h.yaw + 90)   * (Math.PI / 180);
-    const r = 5;
-    const x = +(r * Math.sin(phi) * Math.cos(theta)).toFixed(3);
-    const y = +(r * Math.cos(phi)).toFixed(3);
-    const z = +(r * Math.sin(phi) * Math.sin(theta)).toFixed(3);
-
-    const ent = document.createElement('a-entity');
-    ent.setAttribute('class', 'hs');
-    ent.setAttribute('position', `${x} ${y} ${z}`);
-    ent.setAttribute('look-at', '#cam');
-    ent.innerHTML = `
-      <a-ring color="#c8b89a" radius-inner="0.12" radius-outer="0.17" opacity="0.85"
-        animation="property:rotation; to:0 0 360; loop:true; dur:7000; easing:linear">
-      </a-ring>
-      <a-circle color="#09090b" opacity="0.6" radius="0.12"></a-circle>
-      <a-circle color="#c8b89a" radius="0.05"></a-circle>
-      <a-text value="${h.label}" align="center" color="#f5f2ee"
-        position="0 0.28 0" width="1.4" wrap-count="16"></a-text>
-    `;
-    ent.addEventListener('click',  () => irA(h.destino));
-    ent.addEventListener('fusing', () => setTimeout(() => irA(h.destino), 1500));
-    cont.appendChild(ent);
-  });
-}
-
-// ══════════════════════════════════════════════════════════
-//  MODO LIBRE
-// ══════════════════════════════════════════════════════════
-function arrancarLibre() {
-  document.getElementById('ui-tipo').textContent         = 'Recorrido libre';
-  document.getElementById('ui-hint').textContent         = 'Inclina el cel · Da pasos para moverte';
-  document.getElementById('bloque-escena').style.display = 'none';
-  document.getElementById('miniaturas').style.display    = 'none';
-  document.getElementById('cursor').setAttribute('visible', 'false');
-  document.getElementById('sky').setAttribute('color', '#09090b');
-  document.getElementById('sky').removeAttribute('src');
-  document.getElementById('modelo-libre').setAttribute('visible', 'true');
-
-  const gltf = document.getElementById('modelo-gltf');
-  gltf.setAttribute('gltf-model', CFG.modeloLibre);
-
-  activarPasos();
-
-  const quitarCarga = () => {
-    document.getElementById('cargando').classList.remove('visible');
-    document.getElementById('ui').classList.add('visible');
-  };
-
-  gltf.addEventListener('model-loaded', quitarCarga, { once: true });
-  setTimeout(quitarCarga, 6000); // fallback
-}
-
-// ══════════════════════════════════════════════════════════
-//  PASOS (acelerómetro → caminar)
-// ══════════════════════════════════════════════════════════
-function activarPasos() {
-  if (!window.DeviceMotionEvent) return;
-  window.addEventListener('devicemotion', (e) => {
-    const a = e.accelerationIncludingGravity;
-    if (!a) return;
-    const mag = Math.sqrt(a.x**2 + a.y**2 + a.z**2);
-    pasoBuffer.push(mag);
-    if (pasoBuffer.length > 5) pasoBuffer.shift();
-    const avg  = pasoBuffer.reduce((s,v) => s+v, 0) / pasoBuffer.length;
-    const diff = Math.abs(mag - avg);
-    const now  = Date.now();
-    if (diff > 1.8 && (now - ultimoPaso) > 400) {
-      ultimoPaso = now;
-      avanzar();
-    }
-  });
-}
-
-function avanzar() {
-  const rig = document.getElementById('rig');
-  const cam = document.getElementById('cam');
-  const rot = cam.getAttribute('rotation') || { x:0, y:0, z:0 };
-  const yaw = rot.y * (Math.PI / 180);
-  const pos = rig.getAttribute('position');
-  rig.setAttribute('position', {
-    x: pos.x - Math.sin(yaw) * 0.04,
-    y: pos.y,
-    z: pos.z - Math.cos(yaw) * 0.04
-  });
-}
-
-// ══════════════════════════════════════════════════════════
-//  VR
-// ══════════════════════════════════════════════════════════
+// ═══════════════════════════════════════════════════════════════
+//  VR — Pannellum tiene pantalla completa nativa.
+//  En móvil + Cardboard, pantalla completa + giroscopio = VR.
+//  En dispositivos con WebXR, usamos la API directamente.
+// ═══════════════════════════════════════════════════════════════
 function activarVR() {
-  const escena = document.querySelector('a-scene');
-  if (escena) {
-    // Entrar a VR directo sin esperar a que cargue nada más
-    escena.enterVR();
-    document.getElementById('badge-vr').classList.add('visible');
-    document.getElementById('ui').classList.remove('visible');
+  var el = document.getElementById('panorama');
+
+  // Intentar WebXR primero (Meta Quest, Vision Pro, etc.)
+  if (navigator.xr) {
+    navigator.xr.isSessionSupported('immersive-vr').then(function(supported) {
+      if (supported) {
+        navigator.xr.requestSession('immersive-vr').then(function(session) {
+          document.getElementById('badge-vr').classList.add('show');
+          session.addEventListener('end', function() {
+            document.getElementById('badge-vr').classList.remove('show');
+          });
+        }).catch(function(e) {
+          // Si falla, caer a pantalla completa
+          pantallaCompleta(el);
+        });
+      } else {
+        pantallaCompleta(el);
+      }
+    });
+  } else {
+    // Sin WebXR: pantalla completa + giroscopio automático de Pannellum
+    pantallaCompleta(el);
   }
 }
 
-document.getElementById('escena').addEventListener('enter-vr', () => {
-  document.getElementById('badge-vr').classList.add('visible');
-  document.getElementById('ui').classList.remove('visible');
-});
+function pantallaCompleta(el) {
+  // Pedir pantalla completa (activa el giroscopio en móvil automáticamente)
+  var req = el.requestFullscreen || el.webkitRequestFullscreen || el.mozRequestFullScreen;
+  if (req) {
+    req.call(el);
+    document.getElementById('badge-vr').classList.add('show');
+    document.addEventListener('fullscreenchange', function() {
+      if (!document.fullscreenElement) {
+        document.getElementById('badge-vr').classList.remove('show');
+      }
+    }, { once: true });
+  }
+}
 
-document.getElementById('escena').addEventListener('exit-vr', () => {
-  document.getElementById('badge-vr').classList.remove('visible');
-  document.getElementById('ui').classList.add('visible');
-});
-
-// ══════════════════════════════════════════════════════════
+// ═══════════════════════════════════════════════════════════════
 //  COMPARTIR
-// ══════════════════════════════════════════════════════════
-async function compartir() {
-  const url = window.location.href;
+// ═══════════════════════════════════════════════════════════════
+function compartir() {
+  var url = window.location.href;
   if (navigator.share) {
-    try { await navigator.share({ title: `Interika · ${CFG.nombre}`, url }); } catch(e) {}
-  } else {
-    await navigator.clipboard.writeText(url);
-    const btn = document.querySelector('.btn-ghost');
-    const orig = btn.innerHTML;
-    btn.textContent = '✓  Link copiado';
-    setTimeout(() => btn.innerHTML = orig, 2000);
+    navigator.share({ title: 'Interika · ' + proyecto.nombre, url: url }).catch(function(){});
+  } else if (navigator.clipboard) {
+    navigator.clipboard.writeText(url).then(function() {
+      var btn = document.querySelector('.btn-share');
+      var orig = btn.innerHTML;
+      btn.textContent = '✓  Copiado';
+      setTimeout(function() { btn.innerHTML = orig; }, 2000);
+    });
   }
 }
 </script>
-
 </body>
 </html>
