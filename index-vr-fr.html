@@ -188,13 +188,30 @@
     /* ─── MODAL INSTRUCCIONES ─── */
     #modal-instrucciones {
       position: fixed; inset: 0; z-index: 50;
-      background: rgba(10,10,10,0.85);
+      background: rgba(10,10,10,0.88);
       backdrop-filter: blur(8px);
       display: flex; align-items: center; justify-content: center;
       opacity: 0; visibility: hidden;
       transition: opacity 0.4s ease, visibility 0.4s ease;
+      /* En móvil dejamos libre la zona del footer */
+      padding-bottom: env(safe-area-inset-bottom);
     }
     #modal-instrucciones.visible { opacity: 1; visibility: visible; }
+
+    /* Botón X flotante para cerrar en móvil */
+    .modal-cerrar-x {
+      display: none;
+      position: absolute;
+      top: max(18px, env(safe-area-inset-top)); right: 20px;
+      width: 36px; height: 36px;
+      border: 1px solid var(--borde); background: rgba(10,10,10,0.7);
+      color: var(--arena2); cursor: pointer; font-size: 14px;
+      align-items: center; justify-content: center;
+      transition: border-color 0.25s, color 0.25s;
+      flex-shrink: 0; z-index: 2;
+    }
+    .modal-cerrar-x:hover { border-color: var(--arena); color: var(--blanco); }
+    body.es-movil .modal-cerrar-x { display: flex; }
 
     .modal-caja {
       border: 1px solid var(--borde); padding: 40px 48px;
@@ -291,11 +308,12 @@
       pointer-events: none;
     }
 
-    /* Touch-look overlay (mitad derecha, solo móvil) */
+    /* Touch-look overlay (mitad derecha, solo móvil)
+       Altura limitada para NO bloquear el footer del menú inferior */
     #touch-look-zone {
       position: fixed;
       top: 0; right: 0;
-      width: 55%; height: 100%;
+      width: 55%; height: calc(100% - 130px);
       z-index: 25; display: none;
       pointer-events: all;
     }
@@ -410,7 +428,9 @@
 
   <!-- ─── MODAL INSTRUCCIONES ─── -->
   <div id="modal-instrucciones">
-    <div class="modal-caja">
+    <!-- Botón X solo visible en móvil -->
+    <button class="modal-cerrar-x" onclick="cerrarModal()" aria-label="Cerrar">✕</button>
+    <div class="modal-caja" style="position:relative;">
       <p class="modal-titulo">Controles · Free-Roam</p>
 
       <!-- Desktop: teclado WASD -->
@@ -511,6 +531,7 @@
 
   /* Adaptar hint a móvil */
   if (ES_MOVIL) {
+    document.body.classList.add('es-movil');
     uiHint.textContent = 'Joystick para caminar · Arrastra para mirar';
     document.getElementById('instrucciones-desktop').style.display = 'none';
     document.getElementById('instrucciones-movil').style.display   = 'block';
@@ -544,7 +565,7 @@
     renderer.shadowMap.type = THREE.PCFSoftShadowMap;
     renderer.outputEncoding = THREE.sRGBEncoding;
     renderer.toneMapping = THREE.ACESFilmicToneMapping;
-    renderer.toneMappingExposure = 0.9;
+    renderer.toneMappingExposure = 1.5; /* Fix 3 — más exposición */
     renderer.xr.enabled = true;
     document.getElementById('canvas-container').appendChild(renderer.domElement);
 
@@ -557,18 +578,18 @@
     camera = new THREE.PerspectiveCamera(75, window.innerWidth / window.innerHeight, 0.1, 200);
     camera.position.set(0, CONFIG.altura, 5);
 
-    /* Luces */
-    const ambientLight = new THREE.AmbientLight(0xffffff, 0.4);
+    /* Luces — Fix 3: intensidades aumentadas */
+    const ambientLight = new THREE.AmbientLight(0xffffff, 1.5);
     scene.add(ambientLight);
 
-    const dirLight = new THREE.DirectionalLight(0xffffff, 0.8);
+    const dirLight = new THREE.DirectionalLight(0xffffff, 2.0);
     dirLight.position.set(10, 20, 10);
     dirLight.castShadow = true;
     dirLight.shadow.mapSize.width  = 2048;
     dirLight.shadow.mapSize.height = 2048;
     scene.add(dirLight);
 
-    const fillLight = new THREE.DirectionalLight(0x8090ff, 0.2);
+    const fillLight = new THREE.DirectionalLight(0x9aaeff, 0.5);
     fillLight.position.set(-10, 5, -10);
     scene.add(fillLight);
 
@@ -642,17 +663,34 @@
       (gltf) => {
         const modelo = gltf.scene;
         modelo.traverse((n) => {
-          if (n.isMesh) { n.castShadow = true; n.receiveShadow = true; }
+          if (n.isMesh) {
+            n.castShadow = true;
+            n.receiveShadow = true;
+            /* Fix 3 — envMapIntensity para MeshStandardMaterial */
+            if (n.material && n.material.isMeshStandardMaterial) {
+              n.material.envMapIntensity = 2;
+              n.material.needsUpdate = true;
+            }
+          }
         });
-        /* Centrar y escalar */
+
+        /* Centrar en XZ y poner base en Y=0 */
         const box = new THREE.Box3().setFromObject(modelo);
         const center = box.getCenter(new THREE.Vector3());
-        const size = box.getSize(new THREE.Vector3());
+        const size   = box.getSize(new THREE.Vector3());
         const maxDim = Math.max(size.x, size.y, size.z);
-        const scale = 6 / maxDim;
+
+        /* Fix 2 — escalar x3 más grande que antes */
+        const scale = (6 / maxDim) * 3;
         modelo.scale.setScalar(scale);
-        modelo.position.sub(center.multiplyScalar(scale));
-        modelo.position.y = 0;
+
+        /* Recentrar después del escalado */
+        const box2   = new THREE.Box3().setFromObject(modelo);
+        const center2 = box2.getCenter(new THREE.Vector3());
+        modelo.position.x = -center2.x;
+        modelo.position.z = -center2.z;
+        modelo.position.y = -box2.min.y; /* base exactamente en Y=0 */
+
         scene.add(modelo);
         barra.style.width = '100%';
         setTimeout(() => { barra.style.width = '0%'; }, 600);
@@ -663,15 +701,15 @@
       (err) => {
         console.warn('Error cargando modelo:', err);
         /* Fallback: caja de demostración */
-        const geo = new THREE.BoxGeometry(3, 3, 3);
-        const mat = new THREE.MeshStandardMaterial({ color: 0x303030, roughness: 0.5, metalness: 0.3, wireframe: false });
+        const geo  = new THREE.BoxGeometry(6, 4, 6);
+        const mat  = new THREE.MeshStandardMaterial({ color: 0x282828, roughness: 0.5, metalness: 0.3 });
         const mesh = new THREE.Mesh(geo, mat);
-        mesh.position.set(0, 1.5, 0);
+        mesh.position.set(0, 2, 0);
         mesh.castShadow = true;
         scene.add(mesh);
 
-        const edges = new THREE.EdgesGeometry(geo);
-        const lineMat = new THREE.LineBasicMaterial({ color: 0x888888 });
+        const edges   = new THREE.EdgesGeometry(geo);
+        const lineMat = new THREE.LineBasicMaterial({ color: 0x666666 });
         const wireframe = new THREE.LineSegments(edges, lineMat);
         wireframe.position.copy(mesh.position);
         scene.add(wireframe);
@@ -899,7 +937,9 @@
   ═══════════════════════════════════════════════════ */
   function cerrarModal() {
     document.getElementById('modal-instrucciones').classList.remove('visible');
+    /* En desktop: capturar cursor para empezar a caminar */
     if (!ES_MOVIL && controls) controls.lock();
+    /* En móvil no hay PointerLock — el modal se cierra y el menú queda libre */
   }
 
   /* ═══════════════════════════════════════════════════
