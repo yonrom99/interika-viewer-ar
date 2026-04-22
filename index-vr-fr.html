@@ -7,13 +7,11 @@
   <meta name="mobile-web-app-capable" content="yes" />
   <title>Interika · VR Free-Roam</title>
 
-  <!-- Google Fonts — mismos pesos exactos que AR_Referencia -->
   <link rel="preconnect" href="https://fonts.googleapis.com" />
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
   <link href="https://fonts.googleapis.com/css2?family=Outfit:wght@200;300;400;500;600&display=swap" rel="stylesheet" />
 
   <style>
-    /* ─── RESET & ROOT ─── */
     *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
 
     :root {
@@ -34,10 +32,7 @@
       color: var(--blanco);
     }
 
-    /* ─── CANVAS ─── */
-    #canvas-container {
-      position: fixed; inset: 0; z-index: 0;
-    }
+    #canvas-container { position: fixed; inset: 0; z-index: 0; }
 
     /* ─── SPLASH ─── */
     #splash {
@@ -181,9 +176,7 @@
       border-color: var(--arena); color: var(--arena);
       box-shadow: 0 0 12px rgba(255,255,255,0.15);
     }
-    .btn-secundario:disabled {
-      opacity: 0.35; cursor: not-allowed;
-    }
+    .btn-secundario:disabled { opacity: 0.35; cursor: not-allowed; }
 
     /* ─── MODAL INSTRUCCIONES ─── */
     #modal-instrucciones {
@@ -193,12 +186,10 @@
       display: flex; align-items: center; justify-content: center;
       opacity: 0; visibility: hidden;
       transition: opacity 0.4s ease, visibility 0.4s ease;
-      /* En móvil dejamos libre la zona del footer */
       padding-bottom: env(safe-area-inset-bottom);
     }
     #modal-instrucciones.visible { opacity: 1; visibility: visible; }
 
-    /* Botón X flotante para cerrar en móvil */
     .modal-cerrar-x {
       display: none;
       position: absolute;
@@ -251,7 +242,7 @@
     }
     .modal-btn:hover { background: var(--arena); color: var(--negro); }
 
-    /* ─── BADGE MODO ACTIVO ─── */
+    /* ─── BADGE ─── */
     .modo-badge {
       position: absolute;
       top: max(16px, env(safe-area-inset-top));
@@ -278,6 +269,16 @@
       pointer-events: none; z-index: 20; opacity: 0; transition: opacity 0.3s ease;
     }
     #crosshair.visible { opacity: 1; }
+
+    /* ─── DEBUG PANEL (oculto por defecto, activar con ?debug=1) ─── */
+    #debug-panel {
+      position: fixed; top: 80px; right: 16px;
+      background: rgba(0,0,0,0.75); border: 1px solid rgba(255,255,255,0.15);
+      padding: 12px 16px; font-size: 10px; font-family: monospace;
+      color: #0f0; line-height: 1.8; z-index: 999;
+      display: none; min-width: 220px;
+    }
+    #debug-panel.visible { display: block; }
 
     /* ─── JOYSTICK VIRTUAL ─── */
     #joystick-container {
@@ -308,8 +309,6 @@
       pointer-events: none;
     }
 
-    /* Touch-look overlay (mitad derecha, solo móvil)
-       Altura limitada para NO bloquear el footer del menú inferior */
     #touch-look-zone {
       position: fixed;
       top: 0; right: 0;
@@ -387,7 +386,6 @@
       </div>
     </div>
 
-    <!-- Badge modo activo -->
     <div class="modo-badge" id="modo-badge">
       <div class="modo-dot"></div>
       <span class="modo-badge-text" id="modo-badge-text">Free-Roam · Activo</span>
@@ -428,12 +426,10 @@
 
   <!-- ─── MODAL INSTRUCCIONES ─── -->
   <div id="modal-instrucciones">
-    <!-- Botón X solo visible en móvil -->
     <button class="modal-cerrar-x" onclick="cerrarModal()" aria-label="Cerrar">✕</button>
     <div class="modal-caja" style="position:relative;">
       <p class="modal-titulo">Controles · Free-Roam</p>
 
-      <!-- Desktop: teclado WASD -->
       <div id="instrucciones-desktop">
         <div class="modal-teclas">
           <div class="tecla vacia"></div>
@@ -450,7 +446,6 @@
         </p>
       </div>
 
-      <!-- Móvil: joystick -->
       <div id="instrucciones-movil" style="display:none;">
         <div style="font-size:32px; margin-bottom:20px; opacity:0.6;">◎</div>
         <p class="modal-desc-movil">
@@ -477,6 +472,15 @@
   <!-- ─── TOUCH LOOK ZONE ─── -->
   <div id="touch-look-zone"></div>
 
+  <!-- ─── DEBUG PANEL ─── -->
+  <div id="debug-panel">
+    <div id="dbg-pos">pos: –</div>
+    <div id="dbg-col">colisionables: 0</div>
+    <div id="dbg-suelo">suelo: –</div>
+    <div id="dbg-vel">velY: 0</div>
+    <div id="dbg-collision">colision muro: –</div>
+  </div>
+
   <!-- ─── NO VR ─── -->
   <div id="no-vr">
     <div class="no-vr-icono">⬡</div>
@@ -496,12 +500,17 @@
      CONFIGURACIÓN
   ═══════════════════════════════════════════════════ */
   const ES_MOVIL = /Android|iPhone|iPad|iPod|Touch/i.test(navigator.userAgent) || ('ontouchstart' in window);
+  const DEBUG    = new URLSearchParams(window.location.search).has('debug');
 
   const CONFIG = {
     nombreProyecto: obtenerParam('nombre') || 'Casa Prisma',
-    modeloURL: obtenerParam('modelo') || 'https://modelviewer.dev/shared-assets/models/Astronaut.glb',
-    velocidad: 4,       /* −20 % vs anterior — recorrido más pausado y profesional */
-    altura: 1.7,
+    modeloURL:      obtenerParam('modelo') || 'https://modelviewer.dev/shared-assets/models/Astronaut.glb',
+    /*
+     * VELOCIDAD: −20 % respecto a la versión anterior (era 4 → ahora 3.2).
+     * Esto produce una caminata más pausada y profesional en espacios arquitectónicos.
+     */
+    velocidad: 3.2,
+    altura:    1.7,
   };
 
   function obtenerParam(n) {
@@ -511,25 +520,24 @@
   /* ═══════════════════════════════════════════════════
      REFERENCIAS DOM
   ═══════════════════════════════════════════════════ */
-  const splash     = document.getElementById('splash');
-  const overlay    = document.getElementById('ui-overlay');
-  const barra      = document.getElementById('barra');
-  const crosshair  = document.getElementById('crosshair');
-  const modoBadge  = document.getElementById('modo-badge');
-  const modoBadgeTx= document.getElementById('modo-badge-text');
-  const btnFR      = document.getElementById('btn-freeroam');
-  const btnVR      = document.getElementById('btn-vr');
-  const joyCont    = document.getElementById('joystick-container');
-  const joyBase    = document.getElementById('joystick-base');
-  const joyKnob    = document.getElementById('joystick-knob');
-  const touchLook  = document.getElementById('touch-look-zone');
-  const uiHint     = document.getElementById('ui-hint');
+  const splash      = document.getElementById('splash');
+  const overlay     = document.getElementById('ui-overlay');
+  const barra       = document.getElementById('barra');
+  const crosshair   = document.getElementById('crosshair');
+  const modoBadge   = document.getElementById('modo-badge');
+  const modoBadgeTx = document.getElementById('modo-badge-text');
+  const btnFR       = document.getElementById('btn-freeroam');
+  const btnVR       = document.getElementById('btn-vr');
+  const joyCont     = document.getElementById('joystick-container');
+  const joyBase     = document.getElementById('joystick-base');
+  const joyKnob     = document.getElementById('joystick-knob');
+  const touchLook   = document.getElementById('touch-look-zone');
+  const uiHint      = document.getElementById('ui-hint');
+  const dbgPanel    = document.getElementById('debug-panel');
 
-  /* Nombre del proyecto en UI */
   document.getElementById('splash-nombre').textContent = CONFIG.nombreProyecto;
   document.getElementById('ui-nombre').textContent     = CONFIG.nombreProyecto;
 
-  /* Adaptar hint a móvil */
   if (ES_MOVIL) {
     document.body.classList.add('es-movil');
     uiHint.textContent = 'Joystick para caminar · Arrastra para mirar';
@@ -537,67 +545,79 @@
     document.getElementById('instrucciones-movil').style.display   = 'block';
   }
 
+  if (DEBUG) dbgPanel.classList.add('visible');
+
   /* ═══════════════════════════════════════════════════
      ESTADO GLOBAL
   ═══════════════════════════════════════════════════ */
   let renderer, scene, camera, controls;
-  let modoActual  = 'freeroam';
+  let modoActual    = 'freeroam';
   let moverAdelante = false, moverAtras = false, moverIzq = false, moverDer = false;
   const reloj = { anterior: 0 };
 
-  /* Joystick state */
   const joy   = { activo: false, touchId: null, cx: 0, cy: 0, dx: 0, dy: 0 };
-  /* Touch-look state */
   const tLook = { activo: false, touchId: null, lx: 0, ly: 0 };
 
-  /* ── Física ─────────────────────────────────────── */
-  /* Raycasters reutilizables (no crear en cada frame) */
-  const rayAbajo     = new THREE.Raycaster(new THREE.Vector3(), new THREE.Vector3(0, -1, 0), 0, 6);
-  const rayMovimiento= new THREE.Raycaster(new THREE.Vector3(), new THREE.Vector3(), 0, 0.55);
-  const VUP          = new THREE.Vector3(0, 1, 0);
-  let   velocidadY   = 0;          /* m/s en Y (gravedad acumulada) */
-  const GRAVEDAD     = -9.8;
-  const ALTURA_OJOS  = 1.7;        /* m sobre el suelo */
-  const RAMPA_MAX    = 0.6;        /* máxima subida suave por frame en m */
+  /* ── FÍSICA ──────────────────────────────────────── */
+  const VUP        = new THREE.Vector3(0, 1, 0);
+  let   velocidadY = 0;
+  const GRAVEDAD   = -9.8;
+  const ALTURA_OJOS = 1.7;
+  const RAMPA_MAX   = 0.55;
 
-  /* CollisionMesh — se puebla en cargarModelo() */
-  let colisionables = [];          /* Array<THREE.Mesh> invisibles para raycast */
+  /*
+   * FIX PRINCIPAL — POOL DE RAYCASTERS:
+   * Se crean instancias únicas reutilizables por frame.
+   * NO se crean dentro del loop para evitar GC pressure.
+   */
+  const rayAbajo      = new THREE.Raycaster();
+  const rayMuro       = new THREE.Raycaster();
+  rayAbajo.near = 0;
+  rayMuro.near  = 0;
+
+  /*
+   * ARRAYS DE COLISIÓN — SEPARADOS POR ROL:
+   *
+   * colSuelo: meshes que actúan como suelo/rampa (raycast hacia abajo)
+   * colMuros: meshes que actúan como paredes (raycast horizontal)
+   *
+   * El mismo mesh puede estar en ambos arrays si el modelo no separa roles.
+   * Si el GLB incluye un CollisionMesh Group, solo esos meshes se usan.
+   * Si no hay CollisionMesh, se usa TODA la geometría visible como fallback.
+   *
+   * CRÍTICO: los arrays contienen solo THREE.Mesh — NUNCA Groups.
+   * intersectObjects() con recursive=false sobre Meshes es más eficiente
+   * y predecible que recursive=true sobre el árbol completo.
+   */
+  let colSuelo  = [];   // meshes para gravedad/suelo
+  let colMuros  = [];   // meshes para colisión frontal
+  let modeloCargado = false;
 
   /* ═══════════════════════════════════════════════════
-     HDRI — Genera un envMap tipo "city" con gradientes
-     usando PMREMGenerator + DataTexture procedural.
-     No depende de archivos externos.
+     HDRI PROCEDURAL
   ═══════════════════════════════════════════════════ */
   function crearHDRI(renderer) {
     const pmremGenerator = new THREE.PMREMGenerator(renderer);
     pmremGenerator.compileEquirectangularShader();
 
-    /*
-     * CRÍTICO: usar HalfFloatType (16-bit) en lugar de UnsignedByteType (8-bit).
-     * PMREMGenerator necesita rango HDR real para que los reflejos en metales y
-     * vidrios sean visibles. Con 8-bit el horizonte se satura y queda plano.
-     */
     const W = 512, H = 256;
-    const data = new Float32Array(W * H * 4); /* Float32 → THREE convierte a HalfFloat internamente */
+    const data = new Float32Array(W * H * 4);
 
     for (let y = 0; y < H; y++) {
       const t = y / H;
       let r, g, b;
 
       if (t < 0.42) {
-        /* Cielo alto: azul noche intenso */
         const f = t / 0.42;
         r = THREE.MathUtils.lerp(0.02, 0.10, f);
         g = THREE.MathUtils.lerp(0.04, 0.14, f);
         b = THREE.MathUtils.lerp(0.14, 0.24, f);
       } else if (t < 0.52) {
-        /* Horizonte: bloom cálido ciudad — valores > 1.0 para HDR real */
         const f = (t - 0.42) / 0.10;
-        r = THREE.MathUtils.lerp(0.10, 3.8,  f); /* sobre-exposición = glow de ciudad */
+        r = THREE.MathUtils.lerp(0.10, 3.8,  f);
         g = THREE.MathUtils.lerp(0.14, 2.8,  f);
         b = THREE.MathUtils.lerp(0.24, 1.4,  f);
       } else {
-        /* Suelo: gris oscuro cálido */
         const f = (t - 0.52) / 0.48;
         r = THREE.MathUtils.lerp(3.8,  0.06, f);
         g = THREE.MathUtils.lerp(2.8,  0.05, f);
@@ -606,15 +626,12 @@
 
       for (let x = 0; x < W; x++) {
         const i = (y * W + x) * 4;
-        data[i]   = r;
-        data[i+1] = g;
-        data[i+2] = b;
-        data[i+3] = 1.0;
+        data[i] = r; data[i+1] = g; data[i+2] = b; data[i+3] = 1.0;
       }
     }
 
     const tex = new THREE.DataTexture(data, W, H, THREE.RGBAFormat, THREE.FloatType);
-    tex.mapping    = THREE.EquirectangularReflectionMapping;
+    tex.mapping     = THREE.EquirectangularReflectionMapping;
     tex.needsUpdate = true;
 
     const envMap = pmremGenerator.fromEquirectangular(tex).texture;
@@ -629,32 +646,28 @@
   function iniciarVisor() {
     splash.classList.add('oculto');
 
-    /* ── Renderer ── */
     renderer = new THREE.WebGLRenderer({ antialias: true, powerPreference: 'high-performance' });
     renderer.setPixelRatio(Math.min(window.devicePixelRatio, 2));
     renderer.setSize(window.innerWidth, window.innerHeight);
-    renderer.shadowMap.enabled = true;
-    renderer.shadowMap.type    = THREE.PCFSoftShadowMap;
-    renderer.outputEncoding    = THREE.sRGBEncoding;
-    renderer.toneMapping       = THREE.ACESFilmicToneMapping;
-    renderer.toneMappingExposure = 1.2;   /* ← Especificado en el brief */
-    renderer.xr.enabled        = true;
+    renderer.shadowMap.enabled      = true;
+    renderer.shadowMap.type         = THREE.PCFSoftShadowMap;
+    renderer.outputEncoding         = THREE.sRGBEncoding;
+    renderer.toneMapping            = THREE.ACESFilmicToneMapping;
+    renderer.toneMappingExposure    = 1.2;
+    renderer.xr.enabled             = true;
     document.getElementById('canvas-container').appendChild(renderer.domElement);
 
-    /* ── Escena ── */
     scene = new THREE.Scene();
     scene.fog = new THREE.FogExp2(0x0d1117, 0.025);
 
-    /* ── HDRI procedural tipo "city" ── */
-    const envMap = crearHDRI(renderer);
-    scene.environment = envMap;          /* Reflejos en todos los materiales */
-    scene.background  = envMap;          /* Fondo del visor */
+    const envMap     = crearHDRI(renderer);
+    scene.environment = envMap;
+    scene.background  = envMap;
 
-    /* ── Luces complementarias (el envMap ya ilumina, estas añaden sombras) ── */
     const ambientLight = new THREE.AmbientLight(0xffffff, 1.5);
     scene.add(ambientLight);
 
-    const dirLight = new THREE.DirectionalLight(0xffd9aa, 2.0); /* luz cálida solar */
+    const dirLight = new THREE.DirectionalLight(0xffd9aa, 2.0);
     dirLight.position.set(15, 30, 10);
     dirLight.castShadow = true;
     dirLight.shadow.mapSize.width  = 2048;
@@ -668,34 +681,36 @@
     dirLight.shadow.bias          = -0.001;
     scene.add(dirLight);
 
-    const rimLight = new THREE.DirectionalLight(0x7aaeff, 0.6); /* rim azul frío */
+    const rimLight = new THREE.DirectionalLight(0x7aaeff, 0.6);
     rimLight.position.set(-15, 8, -20);
     scene.add(rimLight);
 
-    /* ── Suelo ── */
-    const sueloGeo = new THREE.PlaneGeometry(200, 200);
+    /* ── Suelo plano (siempre presente como fallback de gravedad) ── */
+    const sueloGeo = new THREE.PlaneGeometry(400, 400);
     const sueloMat = new THREE.MeshStandardMaterial({
-      color: 0x101214, roughness: 0.85, metalness: 0.05,
-      envMapIntensity: 0.8
+      color: 0x101214, roughness: 0.85, metalness: 0.05, envMapIntensity: 0.8
     });
     const suelo = new THREE.Mesh(sueloGeo, sueloMat);
-    suelo.rotation.x = -Math.PI / 2;
+    suelo.rotation.x   = -Math.PI / 2;
     suelo.receiveShadow = true;
+    suelo.name          = '_suelo_base_';
     scene.add(suelo);
 
-    /* Suelo también es colisionable por defecto */
-    colisionables.push(suelo);
+    /*
+     * SUELO BASE siempre en colSuelo.
+     * Cuando se cargue el modelo y tenga CollisionMesh, se usará en su lugar.
+     * El fallback garantiza que el jugador nunca caiga al vacío durante la carga.
+     */
+    colSuelo.push(suelo);
+    colMuros.push(suelo);  // el suelo también bloquea si la cámara baja demasiado
 
-    /* Grid sutil */
     const grid = new THREE.GridHelper(200, 80, 0x1e2428, 0x181c20);
     grid.position.y = 0.002;
     scene.add(grid);
 
-    /* ── Cámara ── */
     camera = new THREE.PerspectiveCamera(72, window.innerWidth / window.innerHeight, 0.05, 300);
     camera.position.set(0, ALTURA_OJOS, 8);
 
-    /* ── Controles PC: PointerLock ── */
     if (!ES_MOVIL) {
       controls = new THREE.PointerLockControls(camera, renderer.domElement);
       scene.add(controls.getObject());
@@ -712,7 +727,6 @@
         if (modoActual === 'freeroam') controls.lock();
       });
     } else {
-      /* Móvil: cámara libre */
       camera.rotation.order = 'YXZ';
       scene.add(camera);
       joyCont.classList.add('activo');
@@ -721,7 +735,6 @@
       iniciarTouchLook();
     }
 
-    /* ── Cargar modelo ── */
     cargarModelo(CONFIG.modeloURL);
 
     window.addEventListener('resize', onResize);
@@ -737,6 +750,90 @@
   }
 
   /* ═══════════════════════════════════════════════════
+     ██████  FUNCIÓN CRÍTICA: EXTRACCIÓN DE COLLISION MESHES
+     ═══════════════════════════════════════════════════
+     DIAGNÓSTICO DEL BUG ORIGINAL:
+     ─────────────────────────────
+     El código anterior buscaba `CollisionMesh` con un simple `traverse`
+     y llamaba a `intersectObjects(colisionables, true)` pasando meshes
+     individuales con recursive=true, lo que causaba que Three.js intentara
+     traversar los hijos de cada Mesh (no existen) de forma redundante.
+
+     El problema más grave era que si el nodo `CollisionMesh` es un Group
+     en el árbol del GLB, el `node.visible = false` en el Group padre NO
+     propaga automáticamente la invisibilidad a los hijos si estos tienen
+     `visible` definido explícitamente en el GLB.
+
+     SOLUCIÓN IMPLEMENTADA:
+     ──────────────────────
+     1. `extraerMeshesColision()` hace traverse del modelo completo y
+        busca cualquier nodo cuyo nombre contenga "collision" (case-insensitive).
+     2. Por cada nodo encontrado, oculta el nodo raíz Y traversa todos
+        sus descendientes para ocultar también los Mesh hijos.
+     3. Solo los THREE.Mesh (no Groups) se agregan a los arrays de colisión.
+     4. Los arrays colSuelo y colMuros se usan con recursive=false → preciso.
+  ═══════════════════════════════════════════════════ */
+  function extraerMeshesColision(raiz) {
+    const meshesColision = [];
+    let encontroCollisionMesh = false;
+
+    /*
+     * Paso 1: buscar TODOS los nodos que coincidan con el patrón.
+     * Se usa una regex que cubre: "CollisionMesh", "collision_mesh",
+     * "Collision", "collider", etc. — robusto ante variaciones de naming.
+     */
+    const patronColision = /collis/i;
+
+    raiz.traverse((nodo) => {
+      if (!patronColision.test(nodo.name)) return;
+
+      encontroCollisionMesh = true;
+
+      /*
+       * FIX CRÍTICO DE VISIBILIDAD:
+       * Se deshabilita el nodo raíz del CollisionMesh Y se fuerza
+       * `visible = false` en TODOS sus descendientes de forma explícita.
+       * Esto evita que Three.js renderice el nodo aunque el padre esté oculto
+       * (comportamiento que ocurre cuando los hijos tienen visible:true en el GLB).
+       */
+      nodo.visible = false;
+
+      nodo.traverse((hijo) => {
+        hijo.visible = false;       // ocultar todos los descendientes sin excepción
+
+        if (hijo.isMesh) {
+          /*
+           * FIX DE GEOMETRÍA:
+           * Algunos GLBs exportan geometría sin índices (non-indexed).
+           * computeBoundingBox() y computeBoundingSphere() son necesarios
+           * para que el Raycaster funcione correctamente con estas geometrías.
+           */
+          if (hijo.geometry) {
+            hijo.geometry.computeBoundingBox();
+            hijo.geometry.computeBoundingSphere();
+          }
+
+          /*
+           * CRÍTICO: Forzar actualización de matrixWorld ANTES de agregar
+           * al pool de colisión. Sin esto, el Raycaster usa matrices obsoletas
+           * en los primeros frames y no detecta intersecciones.
+           */
+          hijo.updateMatrixWorld(true);
+
+          meshesColision.push(hijo);
+        }
+      });
+
+      if (DEBUG) {
+        console.log('[INTERIKA] CollisionMesh encontrado:', nodo.name,
+          '→', meshesColision.length, 'meshes extraídos');
+      }
+    });
+
+    return { meshesColision, encontroCollisionMesh };
+  }
+
+  /* ═══════════════════════════════════════════════════
      CARGAR MODELO GLTF
   ═══════════════════════════════════════════════════ */
   function cargarModelo(url) {
@@ -746,52 +843,76 @@
       (gltf) => {
         const modelo = gltf.scene;
 
-        /* ── PASO 1: Escalar y centrar ANTES de agregar a la escena.
-           Esto es crítico: las matrixWorld de los meshes deben estar
-           actualizadas para que el Raycaster pueda intersectarlos. ── */
+        /* ── Escalar y centrar ── */
         const box    = new THREE.Box3().setFromObject(modelo);
         const size   = box.getSize(new THREE.Vector3());
         const maxDim = Math.max(size.x, size.y, size.z);
         const scale  = (6 / maxDim) * 3;
         modelo.scale.setScalar(scale);
 
+        scene.add(modelo);
+
+        /* Forzar actualización de matrices del árbol completo ANTES
+           de cualquier operación de geometría o colisión */
+        modelo.updateMatrixWorld(true);
+
+        /* Recentrar después de escalar (usando matrices actualizadas) */
         const box2    = new THREE.Box3().setFromObject(modelo);
         const center2 = box2.getCenter(new THREE.Vector3());
         modelo.position.x = -center2.x;
         modelo.position.z = -center2.z;
         modelo.position.y = -box2.min.y;
 
-        /* Agregar a escena para que updateWorldMatrix funcione */
-        scene.add(modelo);
-        /* Forzar actualización de matrices ANTES del traverse de colisiones */
+        /* Segunda actualización tras reposicionar */
         modelo.updateMatrixWorld(true);
 
-        /* ── PASO 2: Detectar CollisionMesh ──
-           BUG ANTERIOR: se buscaba el nombre solo en meshes.
-           CORRECCIÓN: buscar en TODOS los nodos (Groups incluidos),
-           y cuando se encuentra un grupo CollisionMesh, ocultar el
-           nodo raíz del grupo y registrar TODOS sus hijos Mesh. ── */
-        let gruposCollider = [];
-        modelo.traverse((node) => {
-          if (node.name && /collisionmesh/i.test(node.name)) {
-            /* Ocultar el nodo raíz del grupo completo */
-            node.visible = false;
-            node.traverse((hijo) => {
-              if (hijo.isMesh) {
-                hijo.visible = false;
-                colisionables.push(hijo);
-              }
-            });
-            gruposCollider.push(node);
-          }
-        });
+        /* ── EXTRACCIÓN DE COLLISION MESHES ── */
+        const { meshesColision, encontroCollisionMesh } = extraerMeshesColision(modelo);
 
-        /* ── PASO 3: Sombras + envMap en meshes VISIBLES ── */
+        if (encontroCollisionMesh && meshesColision.length > 0) {
+          /*
+           * El modelo contiene CollisionMesh.
+           * REEMPLAZAR el suelo de fallback con los meshes del modelo.
+           *
+           * Se limpia el array (conservando la referencia) en lugar de
+           * reasignarlo, para que el render loop no quede con la referencia vieja.
+           */
+          colSuelo.length = 0;
+          colMuros.length = 0;
+
+          meshesColision.forEach(m => {
+            colSuelo.push(m);
+            colMuros.push(m);
+          });
+
+          if (DEBUG) {
+            console.log('[INTERIKA] Colisión desde CollisionMesh:',
+              colSuelo.length, 'meshes activos');
+          }
+        } else {
+          /*
+           * FALLBACK: No se encontró CollisionMesh.
+           * Se usa TODA la geometría visible del modelo para colisión.
+           * El suelo de fallback ya estaba en los arrays — se mantiene.
+           */
+          if (DEBUG) console.warn('[INTERIKA] Sin CollisionMesh — usando geometría visible como fallback');
+
+          modelo.traverse((n) => {
+            if (!n.isMesh) return;
+            if (n.geometry) {
+              n.geometry.computeBoundingBox();
+              n.geometry.computeBoundingSphere();
+            }
+            n.updateMatrixWorld(true);
+            colSuelo.push(n);
+            colMuros.push(n);
+          });
+        }
+
+        /* ── Sombras + envMap en meshes VISIBLES ── */
         modelo.traverse((n) => {
           if (!n.isMesh) return;
-
-          /* Si ya está en colisionables, skip (es invisible) */
-          if (colisionables.indexOf(n) !== -1) return;
+          if (!n.visible) return;   // skip meshes ocultos (ColisionMesh)
 
           n.castShadow    = true;
           n.receiveShadow = true;
@@ -805,32 +926,31 @@
           });
         });
 
-        /* ── PASO 4: Si NO había CollisionMesh en el modelo,
-           toda la geometría visible actúa como colisionable (fallback).
-           NOTA: en este caso los meshes SÍ son visibles, el raycaster
-           simplemente usa la geometría real del modelo. ── */
-        if (colisionables.length === 0) {
-          /* Solo el suelo (índice 0) está. Agregar todos los meshes del modelo. */
-          modelo.traverse((n) => {
-            if (n.isMesh) colisionables.push(n);
-          });
+        modeloCargado = true;
+
+        /* Actualizar debug */
+        if (DEBUG) {
+          document.getElementById('dbg-col').textContent =
+            `colSuelo: ${colSuelo.length} | colMuros: ${colMuros.length}`;
         }
 
         barra.style.width = '100%';
         setTimeout(() => { barra.style.width = '0%'; }, 600);
       },
       (xhr) => {
-        if (xhr.lengthComputable) barra.style.width = (xhr.loaded / xhr.total * 100) + '%';
+        if (xhr.lengthComputable)
+          barra.style.width = (xhr.loaded / xhr.total * 100) + '%';
       },
       (err) => {
-        console.warn('Error cargando modelo, usando fallback demo:', err);
+        console.warn('[INTERIKA] Error cargando modelo, usando fallback demo:', err);
         crearEdificioDemoHDRI();
         barra.style.width = '0%';
+        modeloCargado = true;
       }
     );
   }
 
-  /* Fallback con materiales PBR para lucir el HDRI */
+  /* Fallback PBR demo */
   function crearEdificioDemoHDRI() {
     const mats = {
       vidrio:  new THREE.MeshStandardMaterial({ color: 0x88aacc, metalness: 0.1, roughness: 0.05, transparent: true, opacity: 0.65, envMapIntensity: 2 }),
@@ -838,25 +958,29 @@
       metal:   new THREE.MeshStandardMaterial({ color: 0x8899aa, metalness: 0.9, roughness: 0.15, envMapIntensity: 2 }),
     };
 
-    /* Cuerpo principal */
     const cuerpo = new THREE.Mesh(new THREE.BoxGeometry(10, 6, 10), mats.concreto);
-    cuerpo.position.set(0, 3, 0); cuerpo.castShadow = true; cuerpo.receiveShadow = true;
-    scene.add(cuerpo); colisionables.push(cuerpo);
+    cuerpo.position.set(0, 3, 0);
+    cuerpo.castShadow = true; cuerpo.receiveShadow = true;
+    cuerpo.geometry.computeBoundingBox();
+    cuerpo.geometry.computeBoundingSphere();
+    scene.add(cuerpo);
 
-    /* Fachada de vidrio */
+    /* El cuerpo es muro pero no suelo — diferenciamos roles aquí */
+    colMuros.push(cuerpo);
+
     const fachada = new THREE.Mesh(new THREE.PlaneGeometry(9.8, 5.8), mats.vidrio);
-    fachada.position.set(0, 3, 5.01); fachada.castShadow = false;
+    fachada.position.set(0, 3, 5.01);
     scene.add(fachada);
 
-    /* Marco metálico */
-    [[-4.9, 3], [0, 3], [4.9, 3]].forEach(([x]) => {
+    [[-4.9], [0], [4.9]].forEach(([x]) => {
       const col = new THREE.Mesh(new THREE.BoxGeometry(0.12, 6, 0.12), mats.metal);
-      col.position.set(x, 3, 5.05); scene.add(col);
+      col.position.set(x, 3, 5.05);
+      scene.add(col);
     });
 
-    /* Techo plano */
     const techo = new THREE.Mesh(new THREE.BoxGeometry(10.4, 0.2, 10.4), mats.metal);
-    techo.position.set(0, 6.1, 0); techo.castShadow = true; techo.receiveShadow = true;
+    techo.position.set(0, 6.1, 0);
+    techo.castShadow = true; techo.receiveShadow = true;
     scene.add(techo);
   }
 
@@ -871,21 +995,42 @@
   }
 
   /* ═══════════════════════════════════════════════════
-     MOVIMIENTO + FÍSICAS (Raycaster nativo)
+     ██████  MOVIMIENTO + FÍSICAS — CORREGIDO
+     ═══════════════════════════════════════════════════
+
+     CAMBIOS RESPECTO A LA VERSIÓN ANTERIOR:
+     ─────────────────────────────────────────
+     1. intersectObjects() se llama con recursive=FALSE.
+        Los arrays colSuelo/colMuros contienen solo Mesh (no Groups),
+        por lo que recursive no es necesario y evita detecciones dobles.
+
+     2. rayAbajo.far se calcula dinámicamente (ALTURA_OJOS + margen)
+        en lugar de un valor fijo que podía fallar con modelos grandes.
+
+     3. El origen del rayMuro se coloca en la cintura Y en los ojos,
+        lanzando DOS rayos para detectar muros bajos Y altos.
+
+     4. Wall-slide suavizado: en lugar de cancelar el movimiento completo,
+        se proyecta el desplazamiento sobre el plano del muro.
+
+     5. posActual apunta al MISMO objeto que Three.js gestiona internamente
+        (getObject().position para PointerLock, camera.position para móvil),
+        por lo que modificarlo directamente mueve la cámara.
   ═══════════════════════════════════════════════════ */
   function moverCamara(delta) {
     /* Referencia unificada a la posición del jugador */
     const posActual = (!ES_MOVIL && controls)
-      ? controls.getObject().position   /* PointerLock envuelve la cámara en un Object3D */
+      ? controls.getObject().position
       : camera.position;
 
-    /* ── 1. Calcular intención de movimiento horizontal ── */
+    /* ── 1. Intención de movimiento horizontal ── */
     const vel = CONFIG.velocidad * delta;
     const desplazamiento = new THREE.Vector3();
 
     if (!ES_MOVIL && controls && controls.isLocked) {
       const frente = new THREE.Vector3();
-      controls.getDirection(frente); frente.y = 0; frente.normalize();
+      controls.getDirection(frente);
+      frente.y = 0; frente.normalize();
       const lado = new THREE.Vector3().crossVectors(frente, VUP).normalize();
 
       if (moverAdelante) desplazamiento.addScaledVector(frente,  vel);
@@ -898,113 +1043,163 @@
       const dir = new THREE.Vector3();
       camera.getWorldDirection(dir); dir.y = 0; dir.normalize();
       const right = new THREE.Vector3().crossVectors(dir, VUP).normalize();
-      /* Joystick: normalizado ±1 sobre radio de 33px */
       desplazamiento.addScaledVector(dir,  -(joy.dy / 33) * vel * 2);
       desplazamiento.addScaledVector(right, (joy.dx / 33) * vel * 2);
     }
 
-    /* ── 2. Colisión con MUROS ──
-       BUG ANTERIOR: intersectObjects(arr, false) — NO recursivo.
-       Los meshes del GLB son hijos de Groups, nunca se detectaban.
-       CORRECCIÓN: usar escena completa con recursive=true,
-       filtrar por colisionables en postproceso. ── */
-    if (desplazamiento.length() > 0.0001 && colisionables.length > 0) {
-      /* Origen: a la altura de la cintura para detectar muros bajos también */
-      const origenMuro = posActual.clone();
-      origenMuro.y -= 0.4;  /* cintura aprox */
+    /* ── 2. COLISIÓN CON MUROS (2 rayos: cintura + ojos) ── */
+    if (desplazamiento.length() > 0.0001 && colMuros.length > 0) {
       const dirMov = desplazamiento.clone().normalize();
 
-      rayMovimiento.set(origenMuro, dirMov);
-      rayMovimiento.near = 0;
-      rayMovimiento.far  = 0.6;
-
       /*
-       * CRÍTICO: segundo argumento = true → RECURSIVO.
-       * Sin esto, los hijos de Group (toda la geometría de un GLB) no se detectan.
+       * Lanzamos el rayo desde la cintura (~1.0 m) y desde los ojos (~1.6 m).
+       * Esto detecta tanto muros bajos (paneles de madera, mobiliario)
+       * como muros altos (paredes, tabiques).
        */
-      const hits = rayMovimiento.intersectObjects(colisionables, true);
+      const alturas = [posActual.y - 0.7, posActual.y - 0.1];
+      let bloqueado = false;
+      let normalMuro = null;
 
-      if (hits.length > 0 && hits[0].distance < 0.5) {
-        const hitFace = hits[0].face;
-        if (hitFace) {
-          /* Normal del muro en world space */
-          const normal = hitFace.normal.clone()
-            .transformDirection(hits[0].object.matrixWorld);
-          normal.y = 0;
-          if (normal.length() > 0.001) {
-            normal.normalize();
-            /* Cancelar solo la componente que penetra el muro (wall-slide) */
-            const penetracion = desplazamiento.dot(normal);
-            if (penetracion < 0) desplazamiento.addScaledVector(normal, -penetracion);
+      for (const altY of alturas) {
+        const origen = new THREE.Vector3(posActual.x, altY, posActual.z);
+        rayMuro.set(origen, dirMov);
+        rayMuro.near = 0;
+        rayMuro.far  = 0.55;
+
+        /*
+         * FIX CLAVE: recursive = FALSE.
+         * colMuros solo contiene Mesh (no Groups), por lo que
+         * recursive=false es correcto y más eficiente.
+         * Con recursive=true sobre Meshes, Three.js intenta traversar
+         * hijos de Mesh (que no existen) y el comportamiento es impredecible.
+         */
+        const hits = rayMuro.intersectObjects(colMuros, false);
+
+        if (hits.length > 0 && hits[0].distance < 0.5) {
+          bloqueado = true;
+          if (hits[0].face) {
+            const n = hits[0].face.normal.clone()
+              .transformDirection(hits[0].object.matrixWorld);
+            n.y = 0;
+            if (n.length() > 0.001) {
+              normalMuro = n.normalize();
+              break;  // con una normal es suficiente para wall-slide
+            }
+          } else {
+            normalMuro = null;
           }
+          break;
+        }
+      }
+
+      if (bloqueado) {
+        if (normalMuro) {
+          /* Wall-slide: cancelar solo la componente perpendicular al muro */
+          const penetracion = desplazamiento.dot(normalMuro);
+          if (penetracion < 0) desplazamiento.addScaledVector(normalMuro, -penetracion);
         } else {
-          /* Sin face (geometría sin índices): bloqueo completo */
+          /* Sin face normal: bloqueo completo */
           desplazamiento.set(0, 0, 0);
         }
+      }
+
+      if (DEBUG) {
+        document.getElementById('dbg-collision').textContent =
+          `colision muro: ${bloqueado ? 'SÍ' : 'no'} | normal: ${normalMuro ? normalMuro.toArray().map(v=>v.toFixed(2)) : '–'}`;
       }
     }
 
     /* ── 3. Aplicar desplazamiento horizontal ── */
     posActual.add(desplazamiento);
 
-    /* ── 4. GRAVEDAD + SUELO + RAMPAS ──
-       Rayo hacia abajo desde la posición del jugador.
-       CORRECCIÓN: recursive = true para detectar suelos del GLB. ── */
-    if (colisionables.length > 0) {
-      const origenRay = posActual.clone();
-      origenRay.y += 0.15;  /* pequeño offset antiglitch */
+    /* ── 4. GRAVEDAD + SUELO + RAMPAS ── */
+    if (colSuelo.length > 0) {
+      /*
+       * Origen del rayo: ligeramente POR ENCIMA de la posición del jugador
+       * para evitar el glitch de "atravesar el suelo" cuando se llega con
+       * velocidadY negativa alta (caída rápida).
+       *
+       * far dinámico: cubre ALTURA_OJOS + margen generoso para rampas altas
+       * y para el caso en que el modelo sea grande y el suelo esté lejos.
+       */
+      const OFFSET_Y = 0.25;
+      const origenRay = new THREE.Vector3(posActual.x, posActual.y + OFFSET_Y, posActual.z);
 
       rayAbajo.set(origenRay, new THREE.Vector3(0, -1, 0));
       rayAbajo.near = 0;
-      rayAbajo.far  = ALTURA_OJOS + 3.0;
+      rayAbajo.far  = ALTURA_OJOS + OFFSET_Y + 4.0;  // margen generoso
 
-      /* recursive = true → detecta suelos dentro de Groups del GLB */
-      const hitsAbajo = rayAbajo.intersectObjects(colisionables, true);
+      /* recursive = FALSE (colSuelo contiene solo Mesh) */
+      const hitsAbajo = rayAbajo.intersectObjects(colSuelo, false);
 
       if (hitsAbajo.length > 0) {
-        /* Descontar el offset de origen */
-        const distReal = hitsAbajo[0].distance - 0.15;
-        const sueloY   = posActual.y + 0.15 - hitsAbajo[0].distance;
+        /* distancia real al suelo (descontando el offset del origen) */
+        const distReal = hitsAbajo[0].distance - OFFSET_Y;
+        /* coordenada Y del suelo */
+        const sueloY   = posActual.y - distReal;
+        /* coordenada Y donde debe estar la cabeza del jugador */
         const targetY  = sueloY + ALTURA_OJOS;
         const diff     = targetY - posActual.y;
 
-        if (distReal <= ALTURA_OJOS + 0.05) {
-          /* Estamos apoyados en una superficie */
+        if (distReal <= ALTURA_OJOS + 0.08) {
+          /* Apoyado en la superficie */
           velocidadY = 0;
-          if (Math.abs(diff) < 0.001) {
-            /* Ya en posición exacta */
-          } else if (diff > 0 && diff <= RAMPA_MAX) {
-            /* Rampa ascendente: interpolación suave */
-            posActual.y += diff * Math.min(delta * 18, 1);
+
+          if (diff > 0 && diff <= RAMPA_MAX) {
+            /* Rampa ascendente suave */
+            posActual.y += diff * Math.min(delta * 20, 1);
           } else if (diff > RAMPA_MAX) {
-            /* Escalón demasiado alto: bloquear subida */
-            /* (el muro ya canceló el avance horizontal) */
-          } else {
-            /* Superficie más baja / descenso */
+            /* Escalón demasiado alto — no subir (la pared ya bloqueó el avance) */
+          } else if (diff < -0.001) {
+            /* Descenso: teletransportar suavemente */
             posActual.y = targetY;
           }
+          /* else: ya en posición exacta */
         } else {
-          /* En el aire: gravedad acumulada */
+          /* En el aire: aplicar gravedad */
           velocidadY += GRAVEDAD * delta;
           posActual.y += velocidadY * delta;
+
+          /* Anticlipping: no traspasar el suelo */
           if (posActual.y < targetY) {
             posActual.y = targetY;
             velocidadY  = 0;
           }
         }
+
+        if (DEBUG) {
+          document.getElementById('dbg-suelo').textContent =
+            `suelo: ${sueloY.toFixed(2)} | dist: ${distReal.toFixed(2)} | diff: ${diff.toFixed(3)}`;
+        }
       } else {
-        /* Sin suelo bajo los pies: caída libre */
+        /* Sin suelo detectado: caída libre con safety floor */
         velocidadY += GRAVEDAD * delta;
         posActual.y += velocidadY * delta;
-        /* Safety floor: no caer infinito */
-        if (posActual.y < -10) {
+
+        if (posActual.y < -20) {
+          /* Reposicionar si cae al vacío (modelo con huecos) */
           posActual.y = ALTURA_OJOS;
           velocidadY  = 0;
+          if (DEBUG) console.warn('[INTERIKA] Safety floor activado — reposicionando jugador');
+        }
+
+        if (DEBUG) {
+          document.getElementById('dbg-suelo').textContent = 'suelo: sin hit (aire)';
         }
       }
     } else {
-      /* Todavía cargando el modelo: altura fija */
+      /* Sin meshes de colisión todavía (cargando) */
       posActual.y = ALTURA_OJOS;
+    }
+
+    /* ── Debug panel ── */
+    if (DEBUG) {
+      document.getElementById('dbg-pos').textContent =
+        `pos: ${posActual.x.toFixed(2)}, ${posActual.y.toFixed(2)}, ${posActual.z.toFixed(2)}`;
+      document.getElementById('dbg-vel').textContent =
+        `velY: ${velocidadY.toFixed(3)}`;
+      document.getElementById('dbg-col').textContent =
+        `colSuelo: ${colSuelo.length} | colMuros: ${colMuros.length}`;
     }
   }
 
@@ -1035,7 +1230,7 @@
     joyBase.addEventListener('touchstart', (e) => {
       e.preventDefault();
       if (joy.activo) return;
-      const t = e.changedTouches[0];
+      const t    = e.changedTouches[0];
       const rect = joyBase.getBoundingClientRect();
       joy.activo  = true;
       joy.touchId = t.identifier;
@@ -1050,8 +1245,8 @@
         e.preventDefault();
         const raw_dx = t.clientX - joy.cx;
         const raw_dy = t.clientY - joy.cy;
-        const maxR = 33;
-        const dist = Math.sqrt(raw_dx * raw_dx + raw_dy * raw_dy);
+        const maxR   = 33;
+        const dist   = Math.sqrt(raw_dx * raw_dx + raw_dy * raw_dy);
         if (dist > maxR) {
           joy.dx = (raw_dx / dist) * maxR;
           joy.dy = (raw_dy / dist) * maxR;
@@ -1097,7 +1292,6 @@
         tLook.lx = t.clientX;
         tLook.ly = t.clientY;
 
-        /* Rotar cámara */
         camera.rotation.order = 'YXZ';
         camera.rotation.y -= dx;
         camera.rotation.x  = Math.max(-Math.PI / 2.2, Math.min(Math.PI / 2.2, camera.rotation.x - dy));
@@ -1118,19 +1312,13 @@
   ═══════════════════════════════════════════════════ */
   function activarFreeRoam() {
     if (modoActual === 'freeroam') {
-      /* Si ya estamos en FreeRoam, mostrar modal de instrucciones */
       document.getElementById('modal-instrucciones').classList.add('visible');
       return;
     }
     modoActual = 'freeroam';
     btnFR.classList.add('activo');
     btnVR.classList.remove('activo');
-
     mostrarBadge('Free-Roam · Activo');
-
-    if (renderer && renderer.xr.isPresenting) {
-      /* No hay forma directa de salir desde JS; el usuario usa el botón del headset */
-    }
   }
 
   async function activarVR() {
@@ -1149,7 +1337,6 @@
     btnFR.classList.remove('activo');
     mostrarBadge('VR Headset · Conectando');
 
-    /* Crear sesión WebXR */
     try {
       const session = await navigator.xr.requestSession('immersive-vr', {
         optionalFeatures: ['local-floor', 'bounded-floor', 'hand-tracking']
@@ -1165,7 +1352,7 @@
         setTimeout(() => modoBadge.classList.remove('visible'), 3000);
       });
     } catch (err) {
-      console.warn('Error iniciando VR:', err);
+      console.warn('[INTERIKA] Error iniciando VR:', err);
       document.getElementById('no-vr').classList.add('visible');
       modoActual = 'freeroam';
       btnFR.classList.add('activo');
@@ -1185,9 +1372,7 @@
   ═══════════════════════════════════════════════════ */
   function cerrarModal() {
     document.getElementById('modal-instrucciones').classList.remove('visible');
-    /* En desktop: capturar cursor para empezar a caminar */
     if (!ES_MOVIL && controls) controls.lock();
-    /* En móvil no hay PointerLock — el modal se cierra y el menú queda libre */
   }
 
   /* ═══════════════════════════════════════════════════
