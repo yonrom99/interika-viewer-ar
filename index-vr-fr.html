@@ -4,36 +4,16 @@
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover" />
   <meta name="apple-mobile-web-app-capable" content="yes" />
+  <meta name="mobile-web-app-capable" content="yes" />
   <title>Interika · VR Free-Roam</title>
 
-  <!-- Google Fonts: mismas que el visor AR hermano -->
+  <!-- Google Fonts — mismos pesos exactos que AR_Referencia -->
   <link rel="preconnect" href="https://fonts.googleapis.com" />
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
-  <link href="https://fonts.googleapis.com/css2?family=Cormorant+Garamond:wght@300;400&family=Montserrat:wght@200;300;400;500&display=swap" rel="stylesheet" />
-
-  <!-- Tailwind CSS via CDN -->
-  <script src="https://cdn.tailwindcss.com"></script>
-
-  <!-- Babel Standalone para compilar JSX en el browser -->
-  <script src="https://unpkg.com/@babel/standalone/babel.min.js"></script>
-
-  <!-- Import map: React + Three + R3F + Drei desde esm.sh -->
-  <script type="importmap">
-  {
-    "imports": {
-      "react":                        "https://esm.sh/react@18.3.1",
-      "react-dom":                    "https://esm.sh/react-dom@18.3.1",
-      "react-dom/client":             "https://esm.sh/react-dom@18.3.1/client",
-      "three":                        "https://esm.sh/three@0.165.0",
-      "three/addons/":                "https://esm.sh/three@0.165.0/examples/jsm/",
-      "@react-three/fiber":           "https://esm.sh/@react-three/fiber@8.17.6?deps=react@18.3.1,three@0.165.0",
-      "@react-three/drei":            "https://esm.sh/@react-three/drei@9.109.2?deps=react@18.3.1,three@0.165.0,@react-three/fiber@8.17.6"
-    }
-  }
-  </script>
+  <link href="https://fonts.googleapis.com/css2?family=Outfit:wght@200;300;400;500;600&display=swap" rel="stylesheet" />
 
   <style>
-    /* ─── DESIGN SYSTEM (idéntico al visor AR hermano) ─── */
+    /* ─── RESET & ROOT ─── */
     *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
 
     :root {
@@ -46,57 +26,78 @@
       --borde:  rgba(255,255,255,0.25);
     }
 
-    html, body, #root {
+    html, body {
       height: 100%; width: 100%;
       overflow: hidden;
       background: var(--negro);
-      font-family: 'Montserrat', sans-serif;
+      font-family: 'Outfit', sans-serif;
+      color: var(--blanco);
     }
 
-    .font-display { font-family: 'Cormorant Garamond', serif; }
-    .font-ui      { font-family: 'Montserrat', sans-serif; }
+    /* ─── CANVAS ─── */
+    #canvas-container {
+      position: fixed; inset: 0; z-index: 0;
+    }
 
-    /* ── Animaciones ── */
+    /* ─── SPLASH ─── */
+    #splash {
+      position: fixed; inset: 0;
+      background: var(--negro);
+      display: flex; flex-direction: column;
+      align-items: center; justify-content: center;
+      gap: 0; z-index: 100;
+      transition: opacity 0.8s ease, visibility 0.8s ease;
+    }
+    #splash.oculto { opacity: 0; visibility: hidden; pointer-events: none; }
+
+    .splash-logo {
+      width: 160px; margin-bottom: 40px;
+      animation: logoIn 1.2s cubic-bezier(0.16,1,0.3,1) both;
+    }
     @keyframes logoIn {
       from { opacity: 0; transform: translateY(20px); }
       to   { opacity: 1; transform: translateY(0); }
     }
-    @keyframes parpadeo {
-      0%,100% { opacity: 1; } 50% { opacity: 0.2; }
-    }
-    @keyframes girar {
-      to { transform: rotate(360deg); }
-    }
-    @keyframes fadeIn {
-      from { opacity: 0; } to { opacity: 1; }
-    }
-    @keyframes pulsar-crosshair {
-      0%,100% { transform: translate(-50%,-50%) scale(1); opacity: 0.55; }
-      50%      { transform: translate(-50%,-50%) scale(1.35); opacity: 1; }
-    }
 
-    /* ── Splash ── */
-    .splash-logo-anim  { animation: logoIn 1.2s cubic-bezier(0.16,1,0.3,1) both; }
-    .anim-d1  { animation: logoIn 1.4s 0.2s cubic-bezier(0.16,1,0.3,1) both; }
-    .anim-d2  { animation: logoIn 1.4s 0.4s cubic-bezier(0.16,1,0.3,1) both; }
-    .anim-d3  { animation: logoIn 1.6s 0.6s cubic-bezier(0.16,1,0.3,1) both; }
-    .anim-d4  { animation: logoIn 1.6s 0.8s cubic-bezier(0.16,1,0.3,1) both; }
-    .anim-d5  { animation: logoIn 1.8s 1.0s cubic-bezier(0.16,1,0.3,1) both; }
-    .anim-d6  { animation: logoIn 2.0s 1.2s cubic-bezier(0.16,1,0.3,1) both; }
-
-    /* ── Botón splash (clon exacto del AR) ── */
+    .splash-titulo {
+      font-family: 'Outfit', sans-serif;
+      font-size: clamp(28px, 8vw, 42px);
+      font-weight: 300; color: var(--blanco);
+      letter-spacing: 0.18em; text-transform: uppercase; text-align: center;
+      animation: logoIn 1.4s 0.2s cubic-bezier(0.16,1,0.3,1) both;
+    }
+    .splash-subtitulo {
+      font-size: 10px; font-weight: 300; color: var(--arena);
+      letter-spacing: 0.35em; text-transform: uppercase; margin-top: 8px;
+      animation: logoIn 1.4s 0.4s cubic-bezier(0.16,1,0.3,1) both;
+    }
+    .splash-linea {
+      width: 1px; height: 60px;
+      background: linear-gradient(to bottom, transparent, var(--arena), transparent);
+      margin: 40px 0;
+      animation: logoIn 1.6s 0.6s cubic-bezier(0.16,1,0.3,1) both;
+    }
+    .splash-info {
+      text-align: center;
+      animation: logoIn 1.6s 0.8s cubic-bezier(0.16,1,0.3,1) both;
+    }
+    .splash-nombre-proyecto {
+      font-family: 'Outfit', sans-serif;
+      font-size: clamp(16px, 5vw, 22px); font-weight: 400;
+      color: var(--blanco); letter-spacing: 0.06em;
+    }
+    .splash-nombre-tipo {
+      font-size: 9px; font-weight: 300; color: var(--arena2);
+      letter-spacing: 0.4em; text-transform: uppercase; margin-top: 4px;
+    }
     .splash-btn {
-      margin-top: 48px;
-      padding: 14px 40px;
-      background: transparent;
-      border: 1px solid var(--arena);
-      color: var(--arena);
-      font-family: 'Montserrat', sans-serif;
-      font-size: 10px; font-weight: 500;
-      letter-spacing: 0.3em; text-transform: uppercase;
-      cursor: pointer; transition: all 0.3s ease;
-      position: relative; overflow: hidden;
+      margin-top: 48px; padding: 14px 40px;
+      background: transparent; border: 1px solid var(--arena);
+      color: var(--arena); font-family: 'Outfit', sans-serif;
+      font-size: 10px; font-weight: 500; letter-spacing: 0.3em;
+      text-transform: uppercase; cursor: pointer; transition: all 0.3s ease;
       animation: logoIn 1.8s 1s cubic-bezier(0.16,1,0.3,1) both;
+      position: relative; overflow: hidden;
     }
     .splash-btn::before {
       content: ''; position: absolute; inset: 0;
@@ -106,538 +107,815 @@
     .splash-btn:hover::before { transform: translateX(0); }
     .splash-btn:hover { color: var(--negro); }
 
-    /* ── Botones footer (clon exacto del AR) ── */
+    .splash-nota {
+      position: absolute;
+      bottom: max(28px, env(safe-area-inset-bottom));
+      font-size: 9px; color: var(--arena2);
+      letter-spacing: 0.25em; text-transform: uppercase; text-align: center;
+      animation: logoIn 2s 1.2s cubic-bezier(0.16,1,0.3,1) both;
+    }
+
+    /* ─── UI OVERLAY ─── */
+    #ui-overlay {
+      position: fixed; inset: 0;
+      pointer-events: none; z-index: 10;
+      opacity: 0; transition: opacity 0.6s ease;
+    }
+    #ui-overlay.visible { opacity: 1; }
+
+    .ui-header {
+      position: absolute; top: 0; left: 0; right: 0;
+      padding: max(20px, env(safe-area-inset-top)) 24px 20px;
+      display: flex; justify-content: space-between; align-items: flex-start;
+      background: linear-gradient(to bottom, rgba(10,10,10,0.7) 0%, transparent 100%);
+    }
+    .ui-logo-small { height: 28px; opacity: 0.9; }
+    .ui-nombre { text-align: right; }
+    .ui-nombre-proyecto {
+      font-family: 'Outfit', sans-serif; font-size: 16px; font-weight: 400;
+      color: var(--blanco); letter-spacing: 0.04em;
+    }
+    .ui-nombre-tipo {
+      font-size: 8px; font-weight: 300; color: var(--arena);
+      letter-spacing: 0.35em; text-transform: uppercase; margin-top: 2px;
+    }
+
+    .ui-footer {
+      position: absolute; bottom: 0; left: 0; right: 0;
+      padding: 20px 24px max(28px, env(safe-area-inset-bottom));
+      background: linear-gradient(to top, rgba(10,10,10,0.8) 0%, transparent 100%);
+      display: flex; flex-direction: column; align-items: center; gap: 16px;
+      pointer-events: all;
+    }
+    .ui-hint {
+      font-size: clamp(7px, 2.2vw, 9px); font-weight: 300; color: var(--arena2);
+      letter-spacing: 0.15em; text-transform: uppercase; text-align: center;
+      width: 100%; white-space: nowrap;
+    }
+    .ui-botones { display: flex; gap: 12px; width: 100%; max-width: 360px; }
+
     .btn-primario {
       flex: 1; padding: 14px 12px;
       background: var(--arena); border: none; color: var(--negro);
-      font-family: 'Montserrat', sans-serif; font-size: 9px; font-weight: 500;
-      letter-spacing: 0.25em; text-transform: uppercase;
-      cursor: pointer; transition: all 0.25s ease;
+      font-family: 'Outfit', sans-serif; font-size: 9px; font-weight: 500;
+      letter-spacing: 0.25em; text-transform: uppercase; cursor: pointer;
+      transition: all 0.25s ease;
       display: flex; align-items: center; justify-content: center; gap: 8px;
     }
     .btn-primario:hover { background: var(--blanco); }
-    .btn-primario:disabled { opacity: 0.4; cursor: default; }
+    .btn-primario.activo {
+      background: var(--blanco);
+      box-shadow: 0 0 12px rgba(255,255,255,0.3);
+    }
 
     .btn-secundario {
       flex: 1; padding: 14px 12px;
       background: transparent; border: 1px solid var(--borde); color: var(--blanco);
-      font-family: 'Montserrat', sans-serif; font-size: 9px; font-weight: 300;
-      letter-spacing: 0.25em; text-transform: uppercase;
-      cursor: pointer; transition: all 0.25s ease;
+      font-family: 'Outfit', sans-serif; font-size: 9px; font-weight: 300;
+      letter-spacing: 0.25em; text-transform: uppercase; cursor: pointer;
+      transition: all 0.25s ease;
       display: flex; align-items: center; justify-content: center; gap: 8px;
     }
     .btn-secundario:hover { border-color: var(--arena); color: var(--arena); }
-
-    /* ── Nav tabs ── */
-    .nav-tab {
-      display: flex; flex-direction: column; align-items: center; gap: 4px;
-      padding: 8px 16px; cursor: pointer; transition: all 0.25s ease;
-      font-family: 'Montserrat', sans-serif; font-size: 7px; font-weight: 500;
-      letter-spacing: 0.2em; text-transform: uppercase; color: var(--arena2);
-      background: transparent; border: none; flex: 1;
-      border-top: 1px solid transparent;
+    .btn-secundario.activo {
+      border-color: var(--arena); color: var(--arena);
+      box-shadow: 0 0 12px rgba(255,255,255,0.15);
     }
-    .nav-tab:hover { color: rgba(255,255,255,0.7); }
-    .nav-tab.activo {
-      color: var(--blanco);
-      border-top-color: var(--arena);
+    .btn-secundario:disabled {
+      opacity: 0.35; cursor: not-allowed;
     }
 
-    /* ── Spinner ── */
-    .spinner {
-      width: 40px; height: 40px;
-      border: 1px solid var(--borde); border-top-color: var(--arena);
-      border-radius: 50%; animation: girar 1.2s linear infinite;
+    /* ─── MODAL INSTRUCCIONES ─── */
+    #modal-instrucciones {
+      position: fixed; inset: 0; z-index: 50;
+      background: rgba(10,10,10,0.85);
+      backdrop-filter: blur(8px);
+      display: flex; align-items: center; justify-content: center;
+      opacity: 0; visibility: hidden;
+      transition: opacity 0.4s ease, visibility 0.4s ease;
+    }
+    #modal-instrucciones.visible { opacity: 1; visibility: visible; }
+
+    .modal-caja {
+      border: 1px solid var(--borde); padding: 40px 48px;
+      max-width: 420px; width: 90%; text-align: center;
+      animation: logoIn 0.4s cubic-bezier(0.16,1,0.3,1) both;
+    }
+    .modal-titulo {
+      font-size: 10px; font-weight: 300; color: var(--arena2);
+      letter-spacing: 0.4em; text-transform: uppercase; margin-bottom: 32px;
+    }
+    .modal-teclas {
+      display: grid; grid-template-columns: repeat(3, 44px);
+      gap: 6px; justify-content: center; margin-bottom: 24px;
+    }
+    .tecla {
+      width: 44px; height: 44px;
+      border: 1px solid var(--borde); background: var(--vidrio);
+      display: flex; align-items: center; justify-content: center;
+      font-size: 11px; font-weight: 300; color: var(--blanco);
+      letter-spacing: 0.05em;
+    }
+    .tecla.vacia { background: transparent; border-color: transparent; }
+    .modal-desc {
+      font-size: 10px; font-weight: 300; color: var(--arena2);
+      letter-spacing: 0.15em; line-height: 2;
+    }
+    .modal-desc-movil {
+      font-size: 12px; font-weight: 300; color: var(--arena2);
+      letter-spacing: 0.12em; line-height: 2; margin-bottom: 8px;
+    }
+    .modal-btn {
+      margin-top: 32px; padding: 12px 36px;
+      background: transparent; border: 1px solid var(--arena);
+      color: var(--arena); font-family: 'Outfit', sans-serif;
+      font-size: 9px; font-weight: 500; letter-spacing: 0.3em;
+      text-transform: uppercase; cursor: pointer; transition: all 0.3s ease;
+    }
+    .modal-btn:hover { background: var(--arena); color: var(--negro); }
+
+    /* ─── BADGE MODO ACTIVO ─── */
+    .modo-badge {
+      position: absolute;
+      top: max(16px, env(safe-area-inset-top));
+      left: 50%; transform: translateX(-50%);
+      background: rgba(10,10,10,0.7); border: 1px solid var(--borde);
+      padding: 8px 20px; display: flex; align-items: center; gap: 8px;
+      opacity: 0; transition: opacity 0.4s ease;
+      pointer-events: none;
+    }
+    .modo-badge.visible { opacity: 1; }
+    .modo-dot {
+      width: 6px; height: 6px; border-radius: 50%; background: var(--arena);
+      animation: parpadeo 1.5s ease infinite;
+    }
+    @keyframes parpadeo { 0%, 100% { opacity: 1; } 50% { opacity: 0.2; } }
+    .modo-badge-text {
+      font-size: 9px; font-weight: 300; color: var(--blanco);
+      letter-spacing: 0.3em; text-transform: uppercase;
     }
 
-    /* ── Barra de carga ── */
+    /* ─── CROSSHAIR ─── */
+    #crosshair {
+      position: fixed; top: 50%; left: 50%; transform: translate(-50%, -50%);
+      pointer-events: none; z-index: 20; opacity: 0; transition: opacity 0.3s ease;
+    }
+    #crosshair.visible { opacity: 1; }
+
+    /* ─── JOYSTICK VIRTUAL ─── */
+    #joystick-container {
+      position: fixed;
+      bottom: max(100px, calc(env(safe-area-inset-bottom) + 90px));
+      left: 28px;
+      width: 110px; height: 110px;
+      z-index: 30; display: none;
+      pointer-events: all;
+    }
+    #joystick-container.activo { display: block; }
+
+    .joystick-base {
+      width: 110px; height: 110px; border-radius: 50%;
+      border: 1px solid var(--borde);
+      background: rgba(10,10,10,0.5);
+      backdrop-filter: blur(4px);
+      position: relative;
+    }
+    .joystick-knob {
+      width: 44px; height: 44px; border-radius: 50%;
+      background: rgba(255,255,255,0.12);
+      border: 1px solid rgba(255,255,255,0.35);
+      position: absolute;
+      top: 50%; left: 50%;
+      transform: translate(-50%, -50%);
+      transition: transform 0.05s linear;
+      pointer-events: none;
+    }
+
+    /* Touch-look overlay (mitad derecha, solo móvil) */
+    #touch-look-zone {
+      position: fixed;
+      top: 0; right: 0;
+      width: 55%; height: 100%;
+      z-index: 25; display: none;
+      pointer-events: all;
+    }
+    #touch-look-zone.activo { display: block; }
+
+    /* ─── BARRA CARGA ─── */
     .barra-carga {
       position: fixed; bottom: 0; left: 0; height: 1px;
-      background: var(--arena); transition: width 0.3s ease; z-index: 200;
+      background: var(--arena); width: 0%;
+      transition: width 0.3s ease; z-index: 200;
     }
 
-    /* ── Dot parpadeante (badge activo) ── */
-    .dot-vr {
-      width: 6px; height: 6px; border-radius: 50%;
-      background: var(--arena); animation: parpadeo 1.5s ease infinite;
-      flex-shrink: 0;
+    /* ─── NO VR ─── */
+    #no-vr {
+      display: none; position: fixed; inset: 0;
+      background: rgba(10,10,10,0.92); backdrop-filter: blur(8px);
+      flex-direction: column; align-items: center; justify-content: center;
+      text-align: center; padding: 40px; z-index: 200;
     }
-
-    /* ── Crosshair ── */
-    .crosshair {
-      position: fixed; top: 50%; left: 50%;
-      width: 18px; height: 18px; pointer-events: none; z-index: 40;
-      animation: pulsar-crosshair 2s ease infinite;
+    #no-vr.visible { display: flex; }
+    .no-vr-icono { font-size: 40px; margin-bottom: 20px; opacity: 0.4; }
+    .no-vr-titulo {
+      font-size: 20px; font-weight: 300; color: var(--blanco);
+      letter-spacing: 0.04em; margin-bottom: 10px;
     }
-    .crosshair::before, .crosshair::after {
-      content: ''; position: absolute; background: rgba(255,255,255,0.65);
+    .no-vr-texto {
+      font-size: 11px; font-weight: 300; color: var(--arena2);
+      letter-spacing: 0.1em; line-height: 1.8; max-width: 280px;
     }
-    .crosshair::before { width: 1px; height: 100%; left: 50%; transform: translateX(-50%); }
-    .crosshair::after  { height: 1px; width: 100%; top: 50%; transform: translateY(-50%); }
-
-    /* ── Canvas Three.js ── */
-    canvas { display: block; }
-
-    /* ── Overlay fade ── */
-    .overlay-ui {
-      position: fixed; inset: 0; pointer-events: none; z-index: 10;
-      animation: fadeIn 0.6s ease both;
+    .no-vr-cerrar {
+      margin-top: 28px; padding: 10px 32px;
+      background: transparent; border: 1px solid var(--borde); color: var(--arena2);
+      font-family: 'Outfit', sans-serif; font-size: 9px; font-weight: 300;
+      letter-spacing: 0.3em; text-transform: uppercase; cursor: pointer;
     }
+    .no-vr-cerrar:hover { border-color: var(--arena); color: var(--arena); }
   </style>
 </head>
 <body>
-  <div id="root"></div>
 
-  <script type="text/babel" data-type="module">
-    import React, { Suspense, useRef, useState, useEffect, useCallback } from 'react';
-    import { createRoot } from 'react-dom/client';
-    import { Canvas, useFrame, useThree } from '@react-three/fiber';
-    import { useGLTF, PointerLockControls, ContactShadows, Environment } from '@react-three/drei';
-    import * as THREE from 'three';
+  <div id="canvas-container"></div>
+  <div class="barra-carga" id="barra"></div>
 
-    /* ───── Utilidades ───── */
-    const getParam = (n) => new URLSearchParams(window.location.search).get(n);
+  <!-- ─── SPLASH ─── -->
+  <div id="splash">
+    <svg class="splash-logo" viewBox="0 0 220 40" fill="none" xmlns="http://www.w3.org/2000/svg">
+      <text x="0" y="30" font-family="Outfit, sans-serif" font-size="26" font-weight="300"
+            fill="#ffffff" letter-spacing="10">INTERIKA</text>
+    </svg>
+    <p class="splash-titulo">Visor VR</p>
+    <p class="splash-subtitulo">Free-Roam Inmersivo</p>
+    <div class="splash-linea"></div>
+    <div class="splash-info">
+      <p class="splash-nombre-proyecto" id="splash-nombre">Casa Prisma</p>
+      <p class="splash-nombre-tipo">Modelo arquitectónico · VR</p>
+    </div>
+    <button class="splash-btn" id="btn-iniciar">Entrar al espacio</button>
+    <p class="splash-nota">Requiere WebGL · Compatible con gafas VR</p>
+  </div>
 
-    /* ───── SVGs inline (reemplazando lucide-react) ───── */
-    const IconNav = () => (
-      <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round">
-        <polygon points="3 11 22 2 13 21 11 13 3 11"/>
+  <!-- ─── UI OVERLAY ─── -->
+  <div id="ui-overlay">
+    <div class="ui-header">
+      <svg class="ui-logo-small" viewBox="0 0 180 30" fill="none" xmlns="http://www.w3.org/2000/svg">
+        <text x="0" y="22" font-family="Outfit, sans-serif" font-size="18" font-weight="300"
+              fill="#ffffff" letter-spacing="6">INTERIKA</text>
       </svg>
-    );
-    const IconShare = () => (
-      <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round">
-        <path d="M4 12v8a2 2 0 002 2h12a2 2 0 002-2v-8"/>
-        <polyline points="16 6 12 2 8 6"/>
-        <line x1="12" y1="2" x2="12" y2="15"/>
-      </svg>
-    );
-    const IconAR = () => (
-      <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round">
-        <path d="M12 2L2 7l10 5 10-5-10-5z"/>
-        <path d="M2 17l10 5 10-5"/>
-        <path d="M2 12l10 5 10-5"/>
-      </svg>
-    );
-    const Icon360 = () => (
-      <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round">
-        <circle cx="12" cy="12" r="10"/>
-        <path d="M2 12h20"/>
-        <path d="M12 2a15.3 15.3 0 010 20"/>
-        <path d="M12 2a15.3 15.3 0 000 20"/>
-      </svg>
-    );
-    const IconMouse = () => (
-      <svg width="26" height="26" viewBox="0 0 24 24" fill="none" stroke="rgba(255,255,255,0.6)" strokeWidth="1.2" strokeLinecap="round" strokeLinejoin="round">
-        <rect x="5" y="2" width="14" height="20" rx="7"/>
-        <line x1="12" y1="6" x2="12" y2="10"/>
-      </svg>
-    );
+      <div class="ui-nombre">
+        <p class="ui-nombre-proyecto" id="ui-nombre">Casa Prisma</p>
+        <p class="ui-nombre-tipo">Visor · VR</p>
+      </div>
+    </div>
 
-    /* ───── Logo SVG Interika ───── */
-    const LogoGrande = () => (
-      <svg style={{ width: 160, marginBottom: 40 }} viewBox="0 0 230 40" fill="none">
-        <text x="0" y="30" fontFamily="Cormorant Garamond, serif" fontSize="26"
-              fontWeight="300" fill="#ffffff" letterSpacing="10">INTERIKA</text>
-      </svg>
-    );
-    const LogoPequeno = () => (
-      <svg style={{ height: 28, opacity: 0.9 }} viewBox="0 0 200 30" fill="none">
-        <text x="0" y="22" fontFamily="Cormorant Garamond, serif" fontSize="18"
-              fontWeight="300" fill="#ffffff" letterSpacing="6">INTERIKA</text>
-      </svg>
-    );
+    <!-- Badge modo activo -->
+    <div class="modo-badge" id="modo-badge">
+      <div class="modo-dot"></div>
+      <span class="modo-badge-text" id="modo-badge-text">Free-Roam · Activo</span>
+    </div>
 
-    /* ─────────────────────────────────────────────
-       Componente: Modelo GLB
-    ───────────────────────────────────────────── */
-    function Modelo({ url }) {
-      const { scene } = useGLTF(url);
-      useEffect(() => {
-        scene.traverse((n) => {
-          if (n.isMesh) { n.castShadow = true; n.receiveShadow = true; }
-        });
-      }, [scene]);
-      return <primitive object={scene} />;
-    }
+    <div class="ui-footer">
+      <p class="ui-hint" id="ui-hint">Rota · WASD para caminar · Click para capturar cursor</p>
+      <div class="ui-botones">
+        <button class="btn-primario activo" id="btn-freeroam" onclick="activarFreeRoam()">
+          <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5">
+            <circle cx="12" cy="12" r="3"/><path d="M12 2v3M12 19v3M2 12h3M19 12h3"/>
+            <path d="M5.6 5.6l2.1 2.1M16.3 16.3l2.1 2.1M5.6 18.4l2.1-2.1M16.3 7.7l2.1-2.1"/>
+          </svg>
+          Free-Roam
+        </button>
+        <button class="btn-secundario" id="btn-vr" onclick="activarVR()">
+          <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5">
+            <path d="M2 8a2 2 0 012-2h16a2 2 0 012 2v8a2 2 0 01-2 2H4a2 2 0 01-2-2V8z"/>
+            <circle cx="8.5" cy="12" r="2"/><circle cx="15.5" cy="12" r="2"/>
+            <path d="M10.5 12h3"/>
+          </svg>
+          VR Headset
+        </button>
+      </div>
+    </div>
+  </div>
 
-    /* ─────────────────────────────────────────────
-       Componente: Controles First-Person (WASD)
-    ───────────────────────────────────────────── */
-    function ControlsFPS({ onLock, onUnlock }) {
-      const { camera } = useThree();
-      const ctrlRef = useRef();
-      const keys    = useRef({});
-      const vel     = useRef(new THREE.Vector3());
+  <!-- ─── CROSSHAIR ─── -->
+  <div id="crosshair">
+    <svg width="20" height="20" viewBox="0 0 20 20" fill="none">
+      <circle cx="10" cy="10" r="1" fill="rgba(255,255,255,0.8)"/>
+      <line x1="10" y1="3" x2="10" y2="7" stroke="rgba(255,255,255,0.5)" stroke-width="1"/>
+      <line x1="10" y1="13" x2="10" y2="17" stroke="rgba(255,255,255,0.5)" stroke-width="1"/>
+      <line x1="3" y1="10" x2="7" y2="10" stroke="rgba(255,255,255,0.5)" stroke-width="1"/>
+      <line x1="13" y1="10" x2="17" y2="10" stroke="rgba(255,255,255,0.5)" stroke-width="1"/>
+    </svg>
+  </div>
 
-      useEffect(() => {
-        const dn = (e) => { keys.current[e.code] = true; };
-        const up = (e) => { keys.current[e.code] = false; };
-        window.addEventListener('keydown', dn);
-        window.addEventListener('keyup',   up);
-        return () => { window.removeEventListener('keydown', dn); window.removeEventListener('keyup', up); };
-      }, []);
+  <!-- ─── MODAL INSTRUCCIONES ─── -->
+  <div id="modal-instrucciones">
+    <div class="modal-caja">
+      <p class="modal-titulo">Controles · Free-Roam</p>
 
-      useFrame((_, dt) => {
-        if (!ctrlRef.current?.isLocked) return;
-        const k = keys.current;
-        const fwd  = k['KeyW'] || k['ArrowUp']    ? 1 : 0;
-        const back = k['KeyS'] || k['ArrowDown']  ? 1 : 0;
-        const left = k['KeyA'] || k['ArrowLeft']  ? 1 : 0;
-        const rght = k['KeyD'] || k['ArrowRight'] ? 1 : 0;
-        const spd  = 5 * dt;
+      <!-- Desktop: teclado WASD -->
+      <div id="instrucciones-desktop">
+        <div class="modal-teclas">
+          <div class="tecla vacia"></div>
+          <div class="tecla">W</div>
+          <div class="tecla vacia"></div>
+          <div class="tecla">A</div>
+          <div class="tecla">S</div>
+          <div class="tecla">D</div>
+        </div>
+        <p class="modal-desc">
+          WASD — Caminar<br>
+          Ratón — Mirar<br>
+          ESC — Liberar cursor
+        </p>
+      </div>
 
-        vel.current.z = (back - fwd)  !== 0 ? (back - fwd) * spd  : vel.current.z * 0.82;
-        vel.current.x = (rght - left) !== 0 ? (rght - left) * spd : vel.current.x * 0.82;
+      <!-- Móvil: joystick -->
+      <div id="instrucciones-movil" style="display:none;">
+        <div style="font-size:32px; margin-bottom:20px; opacity:0.6;">◎</div>
+        <p class="modal-desc-movil">
+          Usa el joystick para caminar<br>
+          y arrastra para mirar
+        </p>
+        <p class="modal-desc">
+          El joystick aparece abajo a la izquierda<br>
+          La zona derecha controla la cámara
+        </p>
+      </div>
 
-        ctrlRef.current.moveRight(vel.current.x);
-        ctrlRef.current.moveForward(-vel.current.z);
-        camera.position.y = 1.7;
+      <button class="modal-btn" onclick="cerrarModal()">Entendido</button>
+    </div>
+  </div>
+
+  <!-- ─── JOYSTICK VIRTUAL ─── -->
+  <div id="joystick-container">
+    <div class="joystick-base" id="joystick-base">
+      <div class="joystick-knob" id="joystick-knob"></div>
+    </div>
+  </div>
+
+  <!-- ─── TOUCH LOOK ZONE ─── -->
+  <div id="touch-look-zone"></div>
+
+  <!-- ─── NO VR ─── -->
+  <div id="no-vr">
+    <div class="no-vr-icono">⬡</div>
+    <h2 class="no-vr-titulo">VR no disponible</h2>
+    <p class="no-vr-texto">Tu dispositivo o navegador no soporta WebXR.<br><br>Puedes seguir usando el modo Free-Roam en pantalla.</p>
+    <button class="no-vr-cerrar" onclick="document.getElementById('no-vr').classList.remove('visible')">Cerrar</button>
+  </div>
+
+  <!-- ─── THREE.JS CDN ─── -->
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js"></script>
+  <script src="https://cdn.jsdelivr.net/npm/three@0.128.0/examples/js/controls/PointerLockControls.js"></script>
+  <script src="https://cdn.jsdelivr.net/npm/three@0.128.0/examples/js/loaders/GLTFLoader.js"></script>
+  <script src="https://cdn.jsdelivr.net/npm/three@0.128.0/examples/js/webxr/VRButton.js"></script>
+
+  <script>
+  /* ═══════════════════════════════════════════════════
+     CONFIGURACIÓN
+  ═══════════════════════════════════════════════════ */
+  const ES_MOVIL = /Android|iPhone|iPad|iPod|Touch/i.test(navigator.userAgent) || ('ontouchstart' in window);
+
+  const CONFIG = {
+    nombreProyecto: obtenerParam('nombre') || 'Casa Prisma',
+    modeloURL: obtenerParam('modelo') || 'https://modelviewer.dev/shared-assets/models/Astronaut.glb',
+    velocidad: 5,
+    altura: 1.7,
+  };
+
+  function obtenerParam(n) {
+    return new URLSearchParams(window.location.search).get(n);
+  }
+
+  /* ═══════════════════════════════════════════════════
+     REFERENCIAS DOM
+  ═══════════════════════════════════════════════════ */
+  const splash     = document.getElementById('splash');
+  const overlay    = document.getElementById('ui-overlay');
+  const barra      = document.getElementById('barra');
+  const crosshair  = document.getElementById('crosshair');
+  const modoBadge  = document.getElementById('modo-badge');
+  const modoBadgeTx= document.getElementById('modo-badge-text');
+  const btnFR      = document.getElementById('btn-freeroam');
+  const btnVR      = document.getElementById('btn-vr');
+  const joyCont    = document.getElementById('joystick-container');
+  const joyBase    = document.getElementById('joystick-base');
+  const joyKnob    = document.getElementById('joystick-knob');
+  const touchLook  = document.getElementById('touch-look-zone');
+  const uiHint     = document.getElementById('ui-hint');
+
+  /* Nombre del proyecto en UI */
+  document.getElementById('splash-nombre').textContent = CONFIG.nombreProyecto;
+  document.getElementById('ui-nombre').textContent     = CONFIG.nombreProyecto;
+
+  /* Adaptar hint a móvil */
+  if (ES_MOVIL) {
+    uiHint.textContent = 'Joystick para caminar · Arrastra para mirar';
+    document.getElementById('instrucciones-desktop').style.display = 'none';
+    document.getElementById('instrucciones-movil').style.display   = 'block';
+  }
+
+  /* ═══════════════════════════════════════════════════
+     ESTADO GLOBAL
+  ═══════════════════════════════════════════════════ */
+  let renderer, scene, camera, controls, animFrameId;
+  let modoActual = 'freeroam'; // 'freeroam' | 'vr'
+  let moverAdelante = false, moverAtras = false, moverIzq = false, moverDer = false;
+  const reloj = { anterior: 0 };
+
+  /* Joystick state */
+  const joy = { activo: false, touchId: null, cx: 0, cy: 0, dx: 0, dy: 0 };
+
+  /* Touch-look state */
+  const tLook = { activo: false, touchId: null, lx: 0, ly: 0 };
+
+  /* ═══════════════════════════════════════════════════
+     INICIALIZAR THREE.JS
+  ═══════════════════════════════════════════════════ */
+  function iniciarVisor() {
+    splash.classList.add('oculto');
+
+    /* Renderer */
+    renderer = new THREE.WebGLRenderer({ antialias: true });
+    renderer.setPixelRatio(window.devicePixelRatio);
+    renderer.setSize(window.innerWidth, window.innerHeight);
+    renderer.shadowMap.enabled = true;
+    renderer.shadowMap.type = THREE.PCFSoftShadowMap;
+    renderer.outputEncoding = THREE.sRGBEncoding;
+    renderer.toneMapping = THREE.ACESFilmicToneMapping;
+    renderer.toneMappingExposure = 0.9;
+    renderer.xr.enabled = true;
+    document.getElementById('canvas-container').appendChild(renderer.domElement);
+
+    /* Escena */
+    scene = new THREE.Scene();
+    scene.background = new THREE.Color(0x0a0a0a);
+    scene.fog = new THREE.Fog(0x0a0a0a, 20, 80);
+
+    /* Cámara */
+    camera = new THREE.PerspectiveCamera(75, window.innerWidth / window.innerHeight, 0.1, 200);
+    camera.position.set(0, CONFIG.altura, 5);
+
+    /* Luces */
+    const ambientLight = new THREE.AmbientLight(0xffffff, 0.4);
+    scene.add(ambientLight);
+
+    const dirLight = new THREE.DirectionalLight(0xffffff, 0.8);
+    dirLight.position.set(10, 20, 10);
+    dirLight.castShadow = true;
+    dirLight.shadow.mapSize.width  = 2048;
+    dirLight.shadow.mapSize.height = 2048;
+    scene.add(dirLight);
+
+    const fillLight = new THREE.DirectionalLight(0x8090ff, 0.2);
+    fillLight.position.set(-10, 5, -10);
+    scene.add(fillLight);
+
+    /* Suelo */
+    const sueloGeo = new THREE.PlaneGeometry(100, 100);
+    const sueloMat = new THREE.MeshStandardMaterial({ color: 0x111111, roughness: 0.9, metalness: 0.1 });
+    const suelo = new THREE.Mesh(sueloGeo, sueloMat);
+    suelo.rotation.x = -Math.PI / 2;
+    suelo.receiveShadow = true;
+    scene.add(suelo);
+
+    /* Grid helper sutil */
+    const grid = new THREE.GridHelper(100, 50, 0x222222, 0x1a1a1a);
+    grid.position.y = 0.001;
+    scene.add(grid);
+
+    /* PointerLock Controls (Desktop) */
+    if (!ES_MOVIL) {
+      controls = new THREE.PointerLockControls(camera, renderer.domElement);
+      scene.add(controls.getObject());
+
+      controls.addEventListener('lock', () => {
+        crosshair.classList.add('visible');
+        document.getElementById('modal-instrucciones').classList.remove('visible');
+      });
+      controls.addEventListener('unlock', () => {
+        crosshair.classList.remove('visible');
       });
 
-      return <PointerLockControls ref={ctrlRef} onLock={onLock} onUnlock={onUnlock} />;
+      renderer.domElement.addEventListener('click', () => {
+        if (modoActual === 'freeroam') controls.lock();
+      });
+    } else {
+      /* Móvil: cámara libre, sin PointerLock */
+      scene.add(camera);
+      joyCont.classList.add('activo');
+      touchLook.classList.add('activo');
+      iniciarJoystick();
+      iniciarTouchLook();
     }
 
-    /* ─────────────────────────────────────────────
-       Componente: Escena 3D
-    ───────────────────────────────────────────── */
-    function Escena({ modeloURL, onLock, onUnlock }) {
-      return (
-        <>
-          <ambientLight intensity={0.55} />
-          <directionalLight position={[10, 20, 10]} intensity={1.1} castShadow
-            shadow-mapSize={[2048, 2048]}
-            shadow-camera-far={100} shadow-camera-left={-20}
-            shadow-camera-right={20} shadow-camera-top={20} shadow-camera-bottom={-20}
-          />
-          <hemisphereLight args={['#ffffff', '#1a1a1a', 0.35]} />
-          <Environment preset="apartment" background={false} />
+    /* Cargar modelo */
+    cargarModelo(CONFIG.modeloURL);
 
-          {/* Suelo infinito oscuro — evita caída al vacío */}
-          <mesh rotation={[-Math.PI / 2, 0, 0]} receiveShadow>
-            <planeGeometry args={[500, 500]} />
-            <meshStandardMaterial color="#080808" roughness={1} />
-          </mesh>
+    /* Resize */
+    window.addEventListener('resize', onResize);
 
-          <ContactShadows position={[0, 0.01, 0]} opacity={0.35} scale={40} blur={2} far={10} />
+    /* Teclado */
+    document.addEventListener('keydown', onKeyDown);
+    document.addEventListener('keyup',   onKeyUp);
 
-          <Suspense fallback={null}>
-            <Modelo url={modeloURL} />
-          </Suspense>
+    /* Mostrar UI */
+    overlay.classList.add('visible');
 
-          <ControlsFPS onLock={onLock} onUnlock={onUnlock} />
-        </>
-      );
+    /* Render loop */
+    renderer.setAnimationLoop(renderLoop);
+
+    /* Modal instrucciones */
+    setTimeout(() => {
+      document.getElementById('modal-instrucciones').classList.add('visible');
+    }, 600);
+  }
+
+  /* ═══════════════════════════════════════════════════
+     CARGAR MODELO GLTF
+  ═══════════════════════════════════════════════════ */
+  function cargarModelo(url) {
+    const loader = new THREE.GLTFLoader();
+    loader.load(
+      url,
+      (gltf) => {
+        const modelo = gltf.scene;
+        modelo.traverse((n) => {
+          if (n.isMesh) { n.castShadow = true; n.receiveShadow = true; }
+        });
+        /* Centrar y escalar */
+        const box = new THREE.Box3().setFromObject(modelo);
+        const center = box.getCenter(new THREE.Vector3());
+        const size = box.getSize(new THREE.Vector3());
+        const maxDim = Math.max(size.x, size.y, size.z);
+        const scale = 6 / maxDim;
+        modelo.scale.setScalar(scale);
+        modelo.position.sub(center.multiplyScalar(scale));
+        modelo.position.y = 0;
+        scene.add(modelo);
+        barra.style.width = '100%';
+        setTimeout(() => { barra.style.width = '0%'; }, 600);
+      },
+      (xhr) => {
+        if (xhr.lengthComputable) barra.style.width = (xhr.loaded / xhr.total * 100) + '%';
+      },
+      (err) => {
+        console.warn('Error cargando modelo:', err);
+        /* Fallback: caja de demostración */
+        const geo = new THREE.BoxGeometry(3, 3, 3);
+        const mat = new THREE.MeshStandardMaterial({ color: 0x303030, roughness: 0.5, metalness: 0.3, wireframe: false });
+        const mesh = new THREE.Mesh(geo, mat);
+        mesh.position.set(0, 1.5, 0);
+        mesh.castShadow = true;
+        scene.add(mesh);
+
+        const edges = new THREE.EdgesGeometry(geo);
+        const lineMat = new THREE.LineBasicMaterial({ color: 0x888888 });
+        const wireframe = new THREE.LineSegments(edges, lineMat);
+        wireframe.position.copy(mesh.position);
+        scene.add(wireframe);
+        barra.style.width = '0%';
+      }
+    );
+  }
+
+  /* ═══════════════════════════════════════════════════
+     RENDER LOOP
+  ═══════════════════════════════════════════════════ */
+  function renderLoop(timestamp) {
+    const delta = Math.min((timestamp - reloj.anterior) / 1000, 0.1);
+    reloj.anterior = timestamp;
+
+    moverCamara(delta);
+    renderer.render(scene, camera);
+  }
+
+  /* ═══════════════════════════════════════════════════
+     MOVIMIENTO DE CÁMARA
+  ═══════════════════════════════════════════════════ */
+  function moverCamara(delta) {
+    const vel = CONFIG.velocidad * delta;
+
+    if (!ES_MOVIL && controls && controls.isLocked) {
+      if (moverAdelante) controls.moveForward(vel);
+      if (moverAtras)    controls.moveForward(-vel);
+      if (moverIzq)      controls.moveRight(-vel);
+      if (moverDer)      controls.moveRight(vel);
     }
 
-    /* ─────────────────────────────────────────────
-       COMPONENTE PRINCIPAL
-    ───────────────────────────────────────────── */
-    function InterikaVR() {
-      const nombre   = getParam('nombre') || 'Casa Prisma';
-      const modelURL = getParam('modelo') || 'https://modelviewer.dev/shared-assets/models/Astronaut.glb';
+    if (ES_MOVIL && (joy.dx !== 0 || joy.dy !== 0)) {
+      /* Calcular dirección desde ángulo de cámara */
+      const dir = new THREE.Vector3();
+      camera.getWorldDirection(dir);
+      dir.y = 0; dir.normalize();
+      const right = new THREE.Vector3().crossVectors(dir, new THREE.Vector3(0,1,0)).normalize();
 
-      const [fase,    setFase]    = useState('splash');   // splash | cargando | visor
-      const [locked,  setLocked]  = useState(false);
-      const [copied,  setCopied]  = useState(false);
-      const [barraW,  setBarraW]  = useState(0);
+      const nx = joy.dx / 55; /* normalizado -1 a 1 aprox */
+      const ny = joy.dy / 55;
 
-      /* Simular progreso al cargar la escena */
-      useEffect(() => {
-        if (fase !== 'cargando') return;
-        let p = 0;
-        const iv = setInterval(() => {
-          p += Math.random() * 15;
-          if (p >= 88) { p = 88; clearInterval(iv); }
-          setBarraW(p);
-        }, 280);
-        const t = setTimeout(() => {
-          setBarraW(100);
-          setTimeout(() => { setFase('visor'); setBarraW(0); }, 420);
-        }, 1900);
-        return () => { clearInterval(iv); clearTimeout(t); };
-      }, [fase]);
+      camera.position.addScaledVector(dir,  -ny * vel * 2);
+      camera.position.addScaledVector(right, nx * vel * 2);
+    }
 
-      const compartir = useCallback(async () => {
-        const d = { title: `Interika · ${nombre}`, text: 'Explora este proyecto en VR', url: window.location.href };
-        if (navigator.share) { try { await navigator.share(d); } catch(_) {} }
-        else {
-          try { await navigator.clipboard.writeText(window.location.href); } catch(_) {}
-          setCopied(true); setTimeout(() => setCopied(false), 2200);
+    /* Mantener altura */
+    camera.position.y = CONFIG.altura;
+  }
+
+  /* ═══════════════════════════════════════════════════
+     TECLADO
+  ═══════════════════════════════════════════════════ */
+  function onKeyDown(e) {
+    switch (e.code) {
+      case 'KeyW': case 'ArrowUp':    moverAdelante = true; break;
+      case 'KeyS': case 'ArrowDown':  moverAtras    = true; break;
+      case 'KeyA': case 'ArrowLeft':  moverIzq      = true; break;
+      case 'KeyD': case 'ArrowRight': moverDer      = true; break;
+    }
+  }
+  function onKeyUp(e) {
+    switch (e.code) {
+      case 'KeyW': case 'ArrowUp':    moverAdelante = false; break;
+      case 'KeyS': case 'ArrowDown':  moverAtras    = false; break;
+      case 'KeyA': case 'ArrowLeft':  moverIzq      = false; break;
+      case 'KeyD': case 'ArrowRight': moverDer      = false; break;
+    }
+  }
+
+  /* ═══════════════════════════════════════════════════
+     JOYSTICK VIRTUAL (MÓVIL)
+  ═══════════════════════════════════════════════════ */
+  function iniciarJoystick() {
+    joyBase.addEventListener('touchstart', (e) => {
+      e.preventDefault();
+      if (joy.activo) return;
+      const t = e.changedTouches[0];
+      const rect = joyBase.getBoundingClientRect();
+      joy.activo  = true;
+      joy.touchId = t.identifier;
+      joy.cx = rect.left + rect.width  / 2;
+      joy.cy = rect.top  + rect.height / 2;
+    }, { passive: false });
+
+    document.addEventListener('touchmove', (e) => {
+      if (!joy.activo) return;
+      for (const t of e.changedTouches) {
+        if (t.identifier !== joy.touchId) continue;
+        e.preventDefault();
+        const raw_dx = t.clientX - joy.cx;
+        const raw_dy = t.clientY - joy.cy;
+        const maxR = 33;
+        const dist = Math.sqrt(raw_dx * raw_dx + raw_dy * raw_dy);
+        if (dist > maxR) {
+          joy.dx = (raw_dx / dist) * maxR;
+          joy.dy = (raw_dy / dist) * maxR;
+        } else {
+          joy.dx = raw_dx;
+          joy.dy = raw_dy;
         }
-      }, [nombre]);
+        joyKnob.style.transform = `translate(calc(-50% + ${joy.dx}px), calc(-50% + ${joy.dy}px))`;
+      }
+    }, { passive: false });
 
-      /* ── SPLASH ── */
-      if (fase === 'splash') return (
-        <div style={{
-          position: 'fixed', inset: 0, background: 'var(--negro)',
-          display: 'flex', flexDirection: 'column',
-          alignItems: 'center', justifyContent: 'center',
-        }}>
-          <div className="splash-logo-anim"><LogoGrande /></div>
+    document.addEventListener('touchend', (e) => {
+      for (const t of e.changedTouches) {
+        if (t.identifier === joy.touchId) {
+          joy.activo = false; joy.touchId = null; joy.dx = 0; joy.dy = 0;
+          joyKnob.style.transform = 'translate(-50%, -50%)';
+        }
+      }
+    });
+  }
 
-          <p className="anim-d1 font-ui" style={{
-            fontSize: 'clamp(26px,7vw,40px)', fontWeight: 200, color: 'var(--blanco)',
-            letterSpacing: '0.18em', textTransform: 'uppercase', textAlign: 'center',
-          }}>VR Free-Roam</p>
+  /* ═══════════════════════════════════════════════════
+     TOUCH-LOOK (MITAD DERECHA)
+  ═══════════════════════════════════════════════════ */
+  function iniciarTouchLook() {
+    touchLook.addEventListener('touchstart', (e) => {
+      e.preventDefault();
+      if (tLook.activo) return;
+      const t = e.changedTouches[0];
+      tLook.activo  = true;
+      tLook.touchId = t.identifier;
+      tLook.lx = t.clientX;
+      tLook.ly = t.clientY;
+    }, { passive: false });
 
-          <p className="anim-d2 font-ui" style={{
-            fontSize: 10, fontWeight: 300, color: 'var(--arena)',
-            letterSpacing: '0.35em', textTransform: 'uppercase', marginTop: 8,
-          }}>Exploración de Primera Persona</p>
+    touchLook.addEventListener('touchmove', (e) => {
+      if (!tLook.activo) return;
+      for (const t of e.changedTouches) {
+        if (t.identifier !== tLook.touchId) continue;
+        e.preventDefault();
+        const dx = (t.clientX - tLook.lx) * 0.003;
+        const dy = (t.clientY - tLook.ly) * 0.003;
+        tLook.lx = t.clientX;
+        tLook.ly = t.clientY;
 
-          {/* Línea decorativa — clon exacto del AR */}
-          <div className="anim-d3" style={{
-            width: 1, height: 60,
-            background: 'linear-gradient(to bottom, transparent, #fff, transparent)',
-            margin: '40px 0',
-          }} />
+        /* Rotar cámara */
+        camera.rotation.order = 'YXZ';
+        camera.rotation.y -= dx;
+        camera.rotation.x  = Math.max(-Math.PI / 2.2, Math.min(Math.PI / 2.2, camera.rotation.x - dy));
+      }
+    }, { passive: false });
 
-          <div className="anim-d4" style={{ textAlign: 'center' }}>
-            <p className="font-display" style={{
-              fontSize: 'clamp(16px,5vw,22px)', fontWeight: 400,
-              color: 'var(--blanco)', letterSpacing: '0.06em',
-            }}>{nombre}</p>
-            <p className="font-ui" style={{
-              fontSize: 9, fontWeight: 300, color: 'var(--arena2)',
-              letterSpacing: '0.4em', textTransform: 'uppercase', marginTop: 4,
-            }}>Modelo arquitectónico · VR</p>
-          </div>
+    touchLook.addEventListener('touchend', (e) => {
+      for (const t of e.changedTouches) {
+        if (t.identifier === tLook.touchId) {
+          tLook.activo = false; tLook.touchId = null;
+        }
+      }
+    });
+  }
 
-          <button className="splash-btn anim-d5" onClick={() => setFase('cargando')}>
-            Entrar al espacio
-          </button>
+  /* ═══════════════════════════════════════════════════
+     MODOS: FREE-ROAM / VR
+  ═══════════════════════════════════════════════════ */
+  function activarFreeRoam() {
+    if (modoActual === 'freeroam') {
+      /* Si ya estamos en FreeRoam, mostrar modal de instrucciones */
+      document.getElementById('modal-instrucciones').classList.add('visible');
+      return;
+    }
+    modoActual = 'freeroam';
+    btnFR.classList.add('activo');
+    btnVR.classList.remove('activo');
 
-          <p className="anim-d6 font-ui" style={{
-            position: 'absolute',
-            bottom: 'max(28px, env(safe-area-inset-bottom))',
-            fontSize: 9, color: 'var(--arena2)',
-            letterSpacing: '0.25em', textTransform: 'uppercase', textAlign: 'center',
-          }}>Haz clic en la escena para activar los controles · Desktop</p>
-        </div>
-      );
+    mostrarBadge('Free-Roam · Activo');
 
-      /* ── CARGANDO ── */
-      if (fase === 'cargando') return (
-        <div style={{
-          position: 'fixed', inset: 0, background: 'var(--negro)',
-          display: 'flex', flexDirection: 'column',
-          alignItems: 'center', justifyContent: 'center',
-        }}>
-          <div className="barra-carga" style={{ width: `${barraW}%` }} />
-          <div className="spinner" style={{ marginBottom: 20 }} />
-          <p className="font-ui" style={{
-            fontSize: 9, fontWeight: 300, color: 'var(--arena2)',
-            letterSpacing: '0.35em', textTransform: 'uppercase',
-          }}>Compilando escena VR</p>
-          <p className="font-ui" style={{
-            fontSize: 8, color: '#555',
-            letterSpacing: '0.2em', textTransform: 'uppercase', marginTop: 8,
-          }}>{nombre}</p>
-        </div>
-      );
+    if (renderer && renderer.xr.isPresenting) {
+      /* No hay forma directa de salir desde JS; el usuario usa el botón del headset */
+    }
+  }
 
-      /* ── VISOR VR ── */
-      return (
-        <div style={{ position: 'fixed', inset: 0, background: 'var(--negro)' }}>
-
-          {/* Canvas Three.js */}
-          <Canvas
-            shadows
-            camera={{ fov: 72, near: 0.05, far: 1000, position: [0, 1.7, 5] }}
-            style={{ position: 'absolute', inset: 0, width: '100%', height: '100%' }}
-            gl={{ antialias: true, toneMapping: THREE.ACESFilmicToneMapping, toneMappingExposure: 0.9 }}
-          >
-            <Escena modeloURL={modelURL} onLock={() => setLocked(true)} onUnlock={() => setLocked(false)} />
-          </Canvas>
-
-          {/* Crosshair — solo cuando pointer está bloqueado */}
-          {locked && <div className="crosshair" />}
-
-          {/* ── HEADER ── */}
-          <div className="overlay-ui">
-            <div style={{
-              position: 'absolute', top: 0, left: 0, right: 0,
-              padding: 'max(20px, env(safe-area-inset-top)) 24px 20px',
-              display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start',
-              background: 'linear-gradient(to bottom, rgba(10,10,10,0.75) 0%, transparent 100%)',
-            }}>
-              <LogoPequeno />
-              <div style={{ textAlign: 'right' }}>
-                <p className="font-display" style={{
-                  fontSize: 16, fontWeight: 400, color: 'var(--blanco)', letterSpacing: '0.04em',
-                }}>{nombre}</p>
-                <p className="font-ui" style={{
-                  fontSize: 8, fontWeight: 300, color: 'var(--arena)',
-                  letterSpacing: '0.35em', textTransform: 'uppercase', marginTop: 2,
-                }}>VR Free-Roam</p>
-              </div>
-            </div>
-          </div>
-
-          {/* ── BADGE "VR ACTIVO" — clon del AR badge ── */}
-          {locked && (
-            <div style={{
-              position: 'fixed',
-              top: 'max(20px, env(safe-area-inset-top))',
-              left: '50%', transform: 'translateX(-50%)',
-              background: 'rgba(10,10,10,0.72)',
-              border: '1px solid var(--borde)',
-              padding: '8px 20px',
-              display: 'flex', alignItems: 'center', gap: 8,
-              zIndex: 30, pointerEvents: 'none',
-              animation: 'fadeIn 0.3s ease both',
-            }}>
-              <div className="dot-vr" />
-              <span className="font-ui" style={{
-                fontSize: 9, fontWeight: 300, color: 'var(--blanco)',
-                letterSpacing: '0.3em', textTransform: 'uppercase',
-              }}>VR Activo · Interika</span>
-            </div>
-          )}
-
-          {/* ── OVERLAY CENTRAL: instrucciones / clic para entrar ── */}
-          {!locked && (
-            <div
-              onClick={() => document.querySelector('canvas')?.click()}
-              style={{
-                position: 'fixed', top: '50%', left: '50%',
-                transform: 'translate(-50%, -50%)',
-                zIndex: 20, cursor: 'pointer',
-                animation: 'fadeIn 0.5s ease both',
-              }}
-            >
-              <div style={{
-                background: 'rgba(10,10,10,0.68)',
-                border: '1px solid var(--borde)',
-                padding: '28px 40px',
-                display: 'flex', flexDirection: 'column',
-                alignItems: 'center', gap: 14, textAlign: 'center',
-              }}>
-                <IconMouse />
-                <p className="font-ui" style={{
-                  fontSize: 11, fontWeight: 300, color: 'var(--blanco)',
-                  letterSpacing: '0.15em', textTransform: 'uppercase',
-                }}>Haz clic para caminar</p>
-
-                <div style={{ width: 1, height: 18, background: 'rgba(255,255,255,0.12)' }} />
-
-                {/* Teclas WASD */}
-                <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 4 }}>
-                  <div style={{ display: 'flex', justifyContent: 'center' }}>
-                    <Tecla k="W" />
-                  </div>
-                  <div style={{ display: 'flex', gap: 4 }}>
-                    <Tecla k="A" />
-                    <Tecla k="S" />
-                    <Tecla k="D" />
-                  </div>
-                </div>
-                <p className="font-ui" style={{
-                  fontSize: 8, color: 'var(--arena2)',
-                  letterSpacing: '0.2em', textTransform: 'uppercase',
-                }}>W A S D · Mouse para mirar · ESC para salir</p>
-              </div>
-            </div>
-          )}
-
-          {/* Hint sutil cuando está en modo libre */}
-          {locked && (
-            <div style={{
-              position: 'fixed', bottom: 160, left: '50%', transform: 'translateX(-50%)',
-              pointerEvents: 'none', zIndex: 15,
-            }}>
-              <p className="font-ui" style={{
-                fontSize: 8, color: 'rgba(255,255,255,0.28)',
-                letterSpacing: '0.2em', textTransform: 'uppercase', textAlign: 'center',
-                whiteSpace: 'nowrap',
-              }}>ESC para salir · W A S D para moverte</p>
-            </div>
-          )}
-
-          {/* ── FOOTER — clon estructural del AR ── */}
-          <div style={{
-            position: 'fixed', bottom: 0, left: 0, right: 0,
-            padding: '20px 24px max(28px, env(safe-area-inset-bottom))',
-            background: 'linear-gradient(to top, rgba(10,10,10,0.88) 0%, transparent 100%)',
-            display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 0,
-            zIndex: 10, pointerEvents: 'all',
-          }}>
-
-            {/* Tab bar de navegación */}
-            <div style={{
-              display: 'flex', width: '100%', maxWidth: 360,
-              borderTop: '1px solid rgba(255,255,255,0.08)',
-              marginBottom: 14,
-            }}>
-              <button className="nav-tab font-ui" title="Visor AR">
-                <IconAR />
-                AR Model
-              </button>
-              <button className="nav-tab font-ui" title="VR 360"
-                style={{ borderLeft: '1px solid rgba(255,255,255,0.08)' }}>
-                <Icon360 />
-                VR 360
-              </button>
-              {/* Free-Roam ACTIVO */}
-              <button className="nav-tab activo font-ui" title="Free-Roam"
-                style={{ borderLeft: '1px solid rgba(255,255,255,0.08)' }}>
-                <IconNav />
-                Free-Roam
-              </button>
-            </div>
-
-            {/* Hint dinámico — mismo estilo que el AR */}
-            <p className="font-ui" style={{
-              fontSize: 'clamp(7px,2.2vw,9px)', fontWeight: 300,
-              color: 'var(--arena2)', letterSpacing: '0.15em',
-              textTransform: 'uppercase', textAlign: 'center',
-              width: '100%', whiteSpace: 'nowrap', marginBottom: 16,
-            }}>
-              {locked
-                ? 'Mueve el mouse para mirar · W A S D para caminar · ESC para salir'
-                : 'Haz clic en la escena para activar los controles de primera persona'}
-            </p>
-
-            {/* Botones de acción — mismo layout que el AR */}
-            <div style={{ display: 'flex', gap: 12, width: '100%', maxWidth: 360 }}>
-              <button
-                className="btn-primario"
-                onClick={() => document.querySelector('canvas')?.click()}
-              >
-                <IconNav />
-                {locked ? 'Modo activo' : 'Caminar'}
-              </button>
-              <button className="btn-secundario" onClick={compartir}>
-                <IconShare />
-                {copied ? '¡Copiado!' : 'Compartir'}
-              </button>
-            </div>
-          </div>
-
-        </div>
-      );
+  async function activarVR() {
+    if (!navigator.xr) {
+      document.getElementById('no-vr').classList.add('visible');
+      return;
+    }
+    const soportado = await navigator.xr.isSessionSupported('immersive-vr').catch(() => false);
+    if (!soportado) {
+      document.getElementById('no-vr').classList.add('visible');
+      return;
     }
 
-    /* ── Tecla decorativa para el modal de instrucciones ── */
-    function Tecla({ k }) {
-      return (
-        <div style={{
-          width: 30, height: 30,
-          border: '1px solid var(--borde)',
-          background: 'rgba(255,255,255,0.06)',
-          display: 'flex', alignItems: 'center', justifyContent: 'center',
-          margin: 2,
-        }}>
-          <span className="font-ui" style={{
-            fontSize: 10, fontWeight: 500,
-            color: 'var(--arena2)', letterSpacing: '0.05em',
-          }}>{k}</span>
-        </div>
-      );
-    }
+    modoActual = 'vr';
+    btnVR.classList.add('activo');
+    btnFR.classList.remove('activo');
+    mostrarBadge('VR Headset · Conectando');
 
-    /* ── Montar la app ── */
-    createRoot(document.getElementById('root')).render(<InterikaVR />);
+    /* Crear sesión WebXR */
+    try {
+      const session = await navigator.xr.requestSession('immersive-vr', {
+        optionalFeatures: ['local-floor', 'bounded-floor', 'hand-tracking']
+      });
+      renderer.xr.setSession(session);
+      mostrarBadge('VR Headset · Activo');
+
+      session.addEventListener('end', () => {
+        modoActual = 'freeroam';
+        btnFR.classList.add('activo');
+        btnVR.classList.remove('activo');
+        mostrarBadge('Free-Roam · Activo');
+        setTimeout(() => modoBadge.classList.remove('visible'), 3000);
+      });
+    } catch (err) {
+      console.warn('Error iniciando VR:', err);
+      document.getElementById('no-vr').classList.add('visible');
+      modoActual = 'freeroam';
+      btnFR.classList.add('activo');
+      btnVR.classList.remove('activo');
+    }
+  }
+
+  function mostrarBadge(texto) {
+    modoBadgeTx.textContent = texto;
+    modoBadge.classList.add('visible');
+    clearTimeout(modoBadge._timer);
+    modoBadge._timer = setTimeout(() => modoBadge.classList.remove('visible'), 4000);
+  }
+
+  /* ═══════════════════════════════════════════════════
+     MODAL
+  ═══════════════════════════════════════════════════ */
+  function cerrarModal() {
+    document.getElementById('modal-instrucciones').classList.remove('visible');
+    if (!ES_MOVIL && controls) controls.lock();
+  }
+
+  /* ═══════════════════════════════════════════════════
+     RESIZE
+  ═══════════════════════════════════════════════════ */
+  function onResize() {
+    camera.aspect = window.innerWidth / window.innerHeight;
+    camera.updateProjectionMatrix();
+    renderer.setSize(window.innerWidth, window.innerHeight);
+  }
+
+  /* ═══════════════════════════════════════════════════
+     ARRANQUE
+  ═══════════════════════════════════════════════════ */
+  document.getElementById('btn-iniciar').addEventListener('click', iniciarVisor);
   </script>
+
 </body>
 </html>
