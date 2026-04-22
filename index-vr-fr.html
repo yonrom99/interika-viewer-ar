@@ -540,16 +540,84 @@
   /* ═══════════════════════════════════════════════════
      ESTADO GLOBAL
   ═══════════════════════════════════════════════════ */
-  let renderer, scene, camera, controls, animFrameId;
-  let modoActual = 'freeroam'; // 'freeroam' | 'vr'
+  let renderer, scene, camera, controls;
+  let modoActual  = 'freeroam';
   let moverAdelante = false, moverAtras = false, moverIzq = false, moverDer = false;
   const reloj = { anterior: 0 };
 
   /* Joystick state */
-  const joy = { activo: false, touchId: null, cx: 0, cy: 0, dx: 0, dy: 0 };
-
+  const joy   = { activo: false, touchId: null, cx: 0, cy: 0, dx: 0, dy: 0 };
   /* Touch-look state */
   const tLook = { activo: false, touchId: null, lx: 0, ly: 0 };
+
+  /* ── Física ─────────────────────────────────────── */
+  /* Raycasters reutilizables (no crear en cada frame) */
+  const rayAbajo     = new THREE.Raycaster(new THREE.Vector3(), new THREE.Vector3(0, -1, 0), 0, 6);
+  const rayMovimiento= new THREE.Raycaster(new THREE.Vector3(), new THREE.Vector3(), 0, 0.55);
+  const VUP          = new THREE.Vector3(0, 1, 0);
+  let   velocidadY   = 0;          /* m/s en Y (gravedad acumulada) */
+  const GRAVEDAD     = -9.8;
+  const ALTURA_OJOS  = 1.7;        /* m sobre el suelo */
+  const RAMPA_MAX    = 0.6;        /* máxima subida suave por frame en m */
+
+  /* CollisionMesh — se puebla en cargarModelo() */
+  let colisionables = [];          /* Array<THREE.Mesh> invisibles para raycast */
+
+  /* ═══════════════════════════════════════════════════
+     HDRI — Genera un envMap tipo "city" con gradientes
+     usando PMREMGenerator + DataTexture procedural.
+     No depende de archivos externos.
+  ═══════════════════════════════════════════════════ */
+  function crearHDRI(renderer) {
+    /* Genera un CubeRenderTarget con colores de cielo/ciudad */
+    const pmremGenerator = new THREE.PMREMGenerator(renderer);
+    pmremGenerator.compileEquirectangularShader();
+
+    /* Creamos una textura equirectangular procedural (512×256) */
+    const W = 512, H = 256;
+    const data = new Uint8Array(W * H * 4);
+
+    for (let y = 0; y < H; y++) {
+      const t = y / H; /* 0=arriba, 1=abajo */
+      /* Cielo → color ciudad: azul noche degradado a naranja/gris cálido */
+      let r, g, b;
+      if (t < 0.45) {
+        /* Cielo alto: azul petróleo */
+        const f = t / 0.45;
+        r = Math.round(THREE.MathUtils.lerp(14,  38,  f));
+        g = Math.round(THREE.MathUtils.lerp(22,  52,  f));
+        b = Math.round(THREE.MathUtils.lerp(42,  72,  f));
+      } else if (t < 0.55) {
+        /* Horizonte: cálido casi blanco — luz de ciudad */
+        const f = (t - 0.45) / 0.10;
+        r = Math.round(THREE.MathUtils.lerp(38,  220, f));
+        g = Math.round(THREE.MathUtils.lerp(52,  195, f));
+        b = Math.round(THREE.MathUtils.lerp(72,  160, f));
+      } else {
+        /* Suelo: gris oscuro con tinte cálido */
+        const f = (t - 0.55) / 0.45;
+        r = Math.round(THREE.MathUtils.lerp(220, 28,  f));
+        g = Math.round(THREE.MathUtils.lerp(195, 24,  f));
+        b = Math.round(THREE.MathUtils.lerp(160, 20,  f));
+      }
+      for (let x = 0; x < W; x++) {
+        const i = (y * W + x) * 4;
+        data[i]   = r;
+        data[i+1] = g;
+        data[i+2] = b;
+        data[i+3] = 255;
+      }
+    }
+
+    const tex = new THREE.DataTexture(data, W, H, THREE.RGBAFormat);
+    tex.mapping = THREE.EquirectangularReflectionMapping;
+    tex.needsUpdate = true;
+
+    const envMap = pmremGenerator.fromEquirectangular(tex).texture;
+    pmremGenerator.dispose();
+    tex.dispose();
+    return envMap;
+  }
 
   /* ═══════════════════════════════════════════════════
      INICIALIZAR THREE.JS
@@ -557,56 +625,73 @@
   function iniciarVisor() {
     splash.classList.add('oculto');
 
-    /* Renderer */
-    renderer = new THREE.WebGLRenderer({ antialias: true });
-    renderer.setPixelRatio(window.devicePixelRatio);
+    /* ── Renderer ── */
+    renderer = new THREE.WebGLRenderer({ antialias: true, powerPreference: 'high-performance' });
+    renderer.setPixelRatio(Math.min(window.devicePixelRatio, 2));
     renderer.setSize(window.innerWidth, window.innerHeight);
     renderer.shadowMap.enabled = true;
-    renderer.shadowMap.type = THREE.PCFSoftShadowMap;
-    renderer.outputEncoding = THREE.sRGBEncoding;
-    renderer.toneMapping = THREE.ACESFilmicToneMapping;
-    renderer.toneMappingExposure = 1.5; /* Fix 3 — más exposición */
-    renderer.xr.enabled = true;
+    renderer.shadowMap.type    = THREE.PCFSoftShadowMap;
+    renderer.outputEncoding    = THREE.sRGBEncoding;
+    renderer.toneMapping       = THREE.ACESFilmicToneMapping;
+    renderer.toneMappingExposure = 1.2;   /* ← Especificado en el brief */
+    renderer.xr.enabled        = true;
     document.getElementById('canvas-container').appendChild(renderer.domElement);
 
-    /* Escena */
+    /* ── Escena ── */
     scene = new THREE.Scene();
-    scene.background = new THREE.Color(0x0a0a0a);
-    scene.fog = new THREE.Fog(0x0a0a0a, 20, 80);
+    scene.fog = new THREE.FogExp2(0x0d1117, 0.025);
 
-    /* Cámara */
-    camera = new THREE.PerspectiveCamera(75, window.innerWidth / window.innerHeight, 0.1, 200);
-    camera.position.set(0, CONFIG.altura, 5);
+    /* ── HDRI procedural tipo "city" ── */
+    const envMap = crearHDRI(renderer);
+    scene.environment = envMap;          /* Reflejos en todos los materiales */
+    scene.background  = envMap;          /* Fondo del visor */
 
-    /* Luces — Fix 3: intensidades aumentadas */
+    /* ── Luces complementarias (el envMap ya ilumina, estas añaden sombras) ── */
     const ambientLight = new THREE.AmbientLight(0xffffff, 1.5);
     scene.add(ambientLight);
 
-    const dirLight = new THREE.DirectionalLight(0xffffff, 2.0);
-    dirLight.position.set(10, 20, 10);
+    const dirLight = new THREE.DirectionalLight(0xffd9aa, 2.0); /* luz cálida solar */
+    dirLight.position.set(15, 30, 10);
     dirLight.castShadow = true;
     dirLight.shadow.mapSize.width  = 2048;
     dirLight.shadow.mapSize.height = 2048;
+    dirLight.shadow.camera.near   = 0.5;
+    dirLight.shadow.camera.far    = 120;
+    dirLight.shadow.camera.left   = -40;
+    dirLight.shadow.camera.right  =  40;
+    dirLight.shadow.camera.top    =  40;
+    dirLight.shadow.camera.bottom = -40;
+    dirLight.shadow.bias          = -0.001;
     scene.add(dirLight);
 
-    const fillLight = new THREE.DirectionalLight(0x9aaeff, 0.5);
-    fillLight.position.set(-10, 5, -10);
-    scene.add(fillLight);
+    const rimLight = new THREE.DirectionalLight(0x7aaeff, 0.6); /* rim azul frío */
+    rimLight.position.set(-15, 8, -20);
+    scene.add(rimLight);
 
-    /* Suelo */
-    const sueloGeo = new THREE.PlaneGeometry(100, 100);
-    const sueloMat = new THREE.MeshStandardMaterial({ color: 0x111111, roughness: 0.9, metalness: 0.1 });
+    /* ── Suelo ── */
+    const sueloGeo = new THREE.PlaneGeometry(200, 200);
+    const sueloMat = new THREE.MeshStandardMaterial({
+      color: 0x101214, roughness: 0.85, metalness: 0.05,
+      envMapIntensity: 0.8
+    });
     const suelo = new THREE.Mesh(sueloGeo, sueloMat);
     suelo.rotation.x = -Math.PI / 2;
     suelo.receiveShadow = true;
     scene.add(suelo);
 
-    /* Grid helper sutil */
-    const grid = new THREE.GridHelper(100, 50, 0x222222, 0x1a1a1a);
-    grid.position.y = 0.001;
+    /* Suelo también es colisionable por defecto */
+    colisionables.push(suelo);
+
+    /* Grid sutil */
+    const grid = new THREE.GridHelper(200, 80, 0x1e2428, 0x181c20);
+    grid.position.y = 0.002;
     scene.add(grid);
 
-    /* PointerLock Controls (Desktop) */
+    /* ── Cámara ── */
+    camera = new THREE.PerspectiveCamera(72, window.innerWidth / window.innerHeight, 0.05, 300);
+    camera.position.set(0, ALTURA_OJOS, 8);
+
+    /* ── Controles PC: PointerLock ── */
     if (!ES_MOVIL) {
       controls = new THREE.PointerLockControls(camera, renderer.domElement);
       scene.add(controls.getObject());
@@ -623,7 +708,8 @@
         if (modoActual === 'freeroam') controls.lock();
       });
     } else {
-      /* Móvil: cámara libre, sin PointerLock */
+      /* Móvil: cámara libre */
+      camera.rotation.order = 'YXZ';
       scene.add(camera);
       joyCont.classList.add('activo');
       touchLook.classList.add('activo');
@@ -631,23 +717,16 @@
       iniciarTouchLook();
     }
 
-    /* Cargar modelo */
+    /* ── Cargar modelo ── */
     cargarModelo(CONFIG.modeloURL);
 
-    /* Resize */
     window.addEventListener('resize', onResize);
-
-    /* Teclado */
     document.addEventListener('keydown', onKeyDown);
     document.addEventListener('keyup',   onKeyUp);
 
-    /* Mostrar UI */
     overlay.classList.add('visible');
-
-    /* Render loop */
     renderer.setAnimationLoop(renderLoop);
 
-    /* Modal instrucciones */
     setTimeout(() => {
       document.getElementById('modal-instrucciones').classList.add('visible');
     }, 600);
@@ -662,34 +741,59 @@
       url,
       (gltf) => {
         const modelo = gltf.scene;
+
+        /* ── Traverse: sombras + envMap ── */
         modelo.traverse((n) => {
-          if (n.isMesh) {
-            n.castShadow = true;
-            n.receiveShadow = true;
-            /* Fix 3 — envMapIntensity para MeshStandardMaterial */
-            if (n.material && n.material.isMeshStandardMaterial) {
-              n.material.envMapIntensity = 2;
-              n.material.needsUpdate = true;
+          if (!n.isMesh) return;
+          n.castShadow    = true;
+          n.receiveShadow = true;
+
+          /* envMapIntensity = 2.0 en todos los StandardMaterial */
+          const mats = Array.isArray(n.material) ? n.material : [n.material];
+          mats.forEach(m => {
+            if (m && m.isMeshStandardMaterial) {
+              m.envMapIntensity = 2.0;
+              m.needsUpdate     = true;
             }
+          });
+
+          /* ── CollisionMesh ──
+             Si el nodo o algún ancestro se llama "CollisionMesh"
+             lo hacemos invisible y lo añadimos al array de colisiones.
+             Si no existe CollisionMesh en el modelo, usamos TODA la
+             geometría como colisionable (fallback seguro). */
+          let esColision = false;
+          let obj = n;
+          while (obj) {
+            if (obj.name && /collisionmesh/i.test(obj.name)) { esColision = true; break; }
+            obj = obj.parent;
+          }
+          if (esColision) {
+            n.visible = false;
+            colisionables.push(n);
           }
         });
 
-        /* Centrar en XZ y poner base en Y=0 */
-        const box = new THREE.Box3().setFromObject(modelo);
-        const center = box.getCenter(new THREE.Vector3());
+        /* Si el modelo no tenía CollisionMesh, toda la geometría colisiona */
+        const tieneCollider = colisionables.some(c => c !== scene.children.find(ch => ch.isPlane));
+        if (!tieneCollider) {
+          modelo.traverse((n) => {
+            if (n.isMesh && colisionables.indexOf(n) === -1) colisionables.push(n);
+          });
+        }
+
+        /* ── Escalar y centrar ── */
+        const box    = new THREE.Box3().setFromObject(modelo);
         const size   = box.getSize(new THREE.Vector3());
         const maxDim = Math.max(size.x, size.y, size.z);
-
-        /* Fix 2 — escalar x3 más grande que antes */
-        const scale = (6 / maxDim) * 3;
+        const scale  = (6 / maxDim) * 3;
         modelo.scale.setScalar(scale);
 
-        /* Recentrar después del escalado */
-        const box2   = new THREE.Box3().setFromObject(modelo);
+        const box2    = new THREE.Box3().setFromObject(modelo);
         const center2 = box2.getCenter(new THREE.Vector3());
         modelo.position.x = -center2.x;
         modelo.position.z = -center2.z;
-        modelo.position.y = -box2.min.y; /* base exactamente en Y=0 */
+        modelo.position.y = -box2.min.y;  /* base en Y = 0 */
 
         scene.add(modelo);
         barra.style.width = '100%';
@@ -700,22 +804,41 @@
       },
       (err) => {
         console.warn('Error cargando modelo:', err);
-        /* Fallback: caja de demostración */
-        const geo  = new THREE.BoxGeometry(6, 4, 6);
-        const mat  = new THREE.MeshStandardMaterial({ color: 0x282828, roughness: 0.5, metalness: 0.3 });
-        const mesh = new THREE.Mesh(geo, mat);
-        mesh.position.set(0, 2, 0);
-        mesh.castShadow = true;
-        scene.add(mesh);
-
-        const edges   = new THREE.EdgesGeometry(geo);
-        const lineMat = new THREE.LineBasicMaterial({ color: 0x666666 });
-        const wireframe = new THREE.LineSegments(edges, lineMat);
-        wireframe.position.copy(mesh.position);
-        scene.add(wireframe);
+        /* ── Fallback: edificio demo ── */
+        crearEdificioDemoHDRI();
         barra.style.width = '0%';
       }
     );
+  }
+
+  /* Fallback con materiales PBR para lucir el HDRI */
+  function crearEdificioDemoHDRI() {
+    const mats = {
+      vidrio:  new THREE.MeshStandardMaterial({ color: 0x88aacc, metalness: 0.1, roughness: 0.05, transparent: true, opacity: 0.65, envMapIntensity: 2 }),
+      concreto:new THREE.MeshStandardMaterial({ color: 0x282c30, metalness: 0.0, roughness: 0.85, envMapIntensity: 2 }),
+      metal:   new THREE.MeshStandardMaterial({ color: 0x8899aa, metalness: 0.9, roughness: 0.15, envMapIntensity: 2 }),
+    };
+
+    /* Cuerpo principal */
+    const cuerpo = new THREE.Mesh(new THREE.BoxGeometry(10, 6, 10), mats.concreto);
+    cuerpo.position.set(0, 3, 0); cuerpo.castShadow = true; cuerpo.receiveShadow = true;
+    scene.add(cuerpo); colisionables.push(cuerpo);
+
+    /* Fachada de vidrio */
+    const fachada = new THREE.Mesh(new THREE.PlaneGeometry(9.8, 5.8), mats.vidrio);
+    fachada.position.set(0, 3, 5.01); fachada.castShadow = false;
+    scene.add(fachada);
+
+    /* Marco metálico */
+    [[-4.9, 3], [0, 3], [4.9, 3]].forEach(([x]) => {
+      const col = new THREE.Mesh(new THREE.BoxGeometry(0.12, 6, 0.12), mats.metal);
+      col.position.set(x, 3, 5.05); scene.add(col);
+    });
+
+    /* Techo plano */
+    const techo = new THREE.Mesh(new THREE.BoxGeometry(10.4, 0.2, 10.4), mats.metal);
+    techo.position.set(0, 6.1, 0); techo.castShadow = true; techo.receiveShadow = true;
+    scene.add(techo);
   }
 
   /* ═══════════════════════════════════════════════════
@@ -724,40 +847,124 @@
   function renderLoop(timestamp) {
     const delta = Math.min((timestamp - reloj.anterior) / 1000, 0.1);
     reloj.anterior = timestamp;
-
     moverCamara(delta);
     renderer.render(scene, camera);
   }
 
   /* ═══════════════════════════════════════════════════
-     MOVIMIENTO DE CÁMARA
+     MOVIMIENTO + FÍSICAS (Raycaster nativo)
   ═══════════════════════════════════════════════════ */
   function moverCamara(delta) {
+    /* ── 1. Calcular intención de movimiento horizontal ── */
     const vel = CONFIG.velocidad * delta;
+    let desplazamiento = new THREE.Vector3();
 
     if (!ES_MOVIL && controls && controls.isLocked) {
-      if (moverAdelante) controls.moveForward(vel);
-      if (moverAtras)    controls.moveForward(-vel);
-      if (moverIzq)      controls.moveRight(-vel);
-      if (moverDer)      controls.moveRight(vel);
+      /* Dirección frontal y lateral desde PointerLockControls */
+      const frente = new THREE.Vector3();
+      const lado   = new THREE.Vector3();
+      controls.getDirection(frente); frente.y = 0; frente.normalize();
+      lado.crossVectors(frente, VUP).normalize();
+
+      if (moverAdelante) desplazamiento.addScaledVector(frente,  vel);
+      if (moverAtras)    desplazamiento.addScaledVector(frente, -vel);
+      if (moverIzq)      desplazamiento.addScaledVector(lado,   -vel);
+      if (moverDer)      desplazamiento.addScaledVector(lado,    vel);
     }
 
     if (ES_MOVIL && (joy.dx !== 0 || joy.dy !== 0)) {
-      /* Calcular dirección desde ángulo de cámara */
       const dir = new THREE.Vector3();
-      camera.getWorldDirection(dir);
-      dir.y = 0; dir.normalize();
-      const right = new THREE.Vector3().crossVectors(dir, new THREE.Vector3(0,1,0)).normalize();
-
-      const nx = joy.dx / 55; /* normalizado -1 a 1 aprox */
-      const ny = joy.dy / 55;
-
-      camera.position.addScaledVector(dir,  -ny * vel * 2);
-      camera.position.addScaledVector(right, nx * vel * 2);
+      camera.getWorldDirection(dir); dir.y = 0; dir.normalize();
+      const right = new THREE.Vector3().crossVectors(dir, VUP).normalize();
+      const nx = joy.dx / 33;
+      const ny = joy.dy / 33;
+      desplazamiento.addScaledVector(dir,  -ny * vel * 2);
+      desplazamiento.addScaledVector(right, nx * vel * 2);
     }
 
-    /* Mantener altura */
-    camera.position.y = CONFIG.altura;
+    /* ── 2. Colisión con MUROS (rayo en dirección del movimiento) ── */
+    if (desplazamiento.length() > 0.0001 && colisionables.length > 0) {
+      const origen = camera.position.clone();
+      const dirMov = desplazamiento.clone().normalize();
+
+      rayMovimiento.set(origen, dirMov);
+      rayMovimiento.far = 0.55;
+      const hits = rayMovimiento.intersectObjects(colisionables, false);
+
+      if (hits.length > 0 && hits[0].distance < 0.5) {
+        /* Deslizar a lo largo del muro: proyectar desplazamiento en la normal del muro */
+        const normal = hits[0].face ? hits[0].face.normal.clone() : new THREE.Vector3(0,0,0);
+        normal.transformDirection(hits[0].object.matrixWorld);
+        normal.y = 0; normal.normalize();
+        /* Componente perpendicular al muro se cancela */
+        const penetracion = desplazamiento.dot(normal);
+        if (penetracion < 0) desplazamiento.addScaledVector(normal, -penetracion);
+      }
+    }
+
+    /* ── 3. Aplicar desplazamiento horizontal ── */
+    if (!ES_MOVIL && controls) {
+      /* Mover el objeto padre del PointerLockControls */
+      const obj = controls.getObject();
+      obj.position.add(desplazamiento);
+    } else {
+      camera.position.add(desplazamiento);
+    }
+
+    /* ── 4. GRAVEDAD + SUELO (rayo hacia abajo) ── */
+    const posActual = (!ES_MOVIL && controls) ? controls.getObject().position : camera.position;
+
+    if (colisionables.length > 0) {
+      /* Origen del rayo: ligeramente por encima de los pies */
+      const origenRay = posActual.clone();
+      origenRay.y += 0.1; /* pequeño offset para no empezar dentro del suelo */
+
+      rayAbajo.set(origenRay, new THREE.Vector3(0, -1, 0));
+      rayAbajo.far = ALTURA_OJOS + 2.0;
+
+      const hitsAbajo = rayAbajo.intersectObjects(colisionables, false);
+
+      if (hitsAbajo.length > 0) {
+        const distSuelo = hitsAbajo[0].distance - 0.1; /* descontar el offset */
+        const sueloY    = origenRay.y - hitsAbajo[0].distance;
+
+        if (distSuelo < ALTURA_OJOS) {
+          /* Estamos sobre una superficie — soporte y posible rampa */
+          velocidadY = 0;
+          /* Subida suave de rampa: no teletransportar, suavizar */
+          const targetY = sueloY + ALTURA_OJOS;
+          const diff    = targetY - posActual.y;
+          if (diff > 0 && diff < RAMPA_MAX) {
+            /* Rampa hacia arriba: suave */
+            posActual.y += Math.min(diff, RAMPA_MAX * delta * 20);
+          } else if (diff < 0) {
+            /* Descenso: seguir pegado al suelo */
+            posActual.y = targetY;
+          }
+        } else {
+          /* En el aire: aplicar gravedad */
+          velocidadY += GRAVEDAD * delta;
+          posActual.y += velocidadY * delta;
+          /* Evitar caer más abajo que el suelo detectado */
+          if (posActual.y < sueloY + ALTURA_OJOS) {
+            posActual.y = sueloY + ALTURA_OJOS;
+            velocidadY  = 0;
+          }
+        }
+      } else {
+        /* Sin suelo detectado: gravedad libre (caída al vacío, limitada) */
+        velocidadY += GRAVEDAD * delta;
+        posActual.y += velocidadY * delta;
+        /* Safety floor: no caer por debajo de -2m */
+        if (posActual.y < ALTURA_OJOS - 2) {
+          posActual.y = ALTURA_OJOS - 2;
+          velocidadY  = 0;
+        }
+      }
+    } else {
+      /* Sin colisionables todavía: fijar altura clásica */
+      posActual.y = ALTURA_OJOS;
+    }
   }
 
   /* ═══════════════════════════════════════════════════
