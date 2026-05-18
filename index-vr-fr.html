@@ -767,12 +767,22 @@
       camera.rotation.order = 'YXZ';
 
       /*
-       * ARQUITECTURA MÓVIL / VR:
-       * El playerRig es el "cuerpo" del jugador. Se posiciona en suelo (Y=0)
-       * y la cámara cuelga dentro de él. La física ajusta playerRig.position.y
-       * para que los ojos queden a ALTURA_OJOS sobre el suelo.
+       * ARQUITECTURA MÓVIL:
+       * ─────────────────────
+       * playerRig.position.y = altura de los ojos en mundo (semántica idéntica a PC).
+       * camera.position local = (0, 0, 0) → camera world Y = playerRig.y.
+       *
+       * La física opera sobre playerRig.position exactamente igual que PC opera
+       * sobre controls.getObject().position. La Y siempre significa "altura de ojos".
+       *
+       * El look se aplica rotando la CÁMARA directamente (touch-look),
+       * por lo que camera.getWorldDirection() responde correctamente al input.
+       *
+       * Spawn inicial en z=8 (afuera del modelo de fallback).
+       * Tras cargar el modelo real, cargarModelo() reposiciona el rig.
        */
       playerRig = new THREE.Group();
+      camera.position.set(0, 0, 0);   // explícito: sin offset local
       playerRig.position.set(0, ALTURA_OJOS, 8);
       playerRig.add(camera);
       scene.add(playerRig);
@@ -1015,27 +1025,7 @@
         const box    = new THREE.Box3().setFromObject(modelo);
         const size   = box.getSize(new THREE.Vector3());
         const maxDim = Math.max(size.x, size.y, size.z);
-
-        /*
-         * FIX DE ESCALA:
-         * ──────────────
-         * La fórmula anterior (6/maxDim)*3 = 18/maxDim escalaba todos los
-         * modelos al mismo tamaño, rompiendo modelos en escala real (metros).
-         * Un GLB arquitectónico de Blender/Revit/SketchUp exportado en metros
-         * tiene maxDim típicamente entre 5 m y 150 m.
-         *
-         * Regla:
-         *  - Si el modelo ya mide entre 4 m y 200 m en su dimensión mayor:
-         *    → escala real, no tocar (scale = 1).
-         *  - Si es más pequeño (miniatura, en cm) o enorme (km):
-         *    → aplicar escala normalizadora para llevarlo a ~18 m.
-         *
-         * Esto evita que una casa de 15 m se escale a 1.2 m o a 180 m.
-         */
-        let scale = 1.0;
-        if (maxDim < 4 || maxDim > 200) {
-          scale = 18 / maxDim;
-        }
+        const scale  = (6 / maxDim) * 3;
         modelo.scale.setScalar(scale);
 
         scene.add(modelo);
@@ -1055,28 +1045,32 @@
         modelo.updateMatrixWorld(true);
 
         /*
-         * FIX CÁMARA INICIAL:
-         * Tras escalar y centrar el modelo, reposicionar la cámara fuera del
-         * edificio. Calculamos el bounding box post-reposición para obtener
-         * el tamaño real escalado, y ubicamos al jugador frente a la fachada.
+         * REPOSICIONAR JUGADOR tras cargar el modelo — PC Y MÓVIL.
+         * ──────────────────────────────────────────────────────────
+         * Problema: el spawn inicial (z=8, y=1.7) se definió antes de que
+         * el modelo se cargara y se centrara. Después del escalado y centrado,
+         * el jugador puede haber quedado DENTRO del edificio, causando que el
+         * rayo hacia abajo impacte un techo en vez del suelo → "vuela alto".
          *
-         * - Z inicial: borde del modelo en Z+ + 2.5 m de separación (afuera)
-         * - Y inicial: ALTURA_OJOS (1.7 m sobre el suelo)
-         * - X inicial: centro horizontal del modelo
+         * Solución: usar el bounding box real post-centrado para colocar al
+         * jugador 2.5 m fuera de la fachada Z+, a altura de ojos = 1.7 m.
          *
-         * Esto garantiza que sin importar la escala resultante, el jugador
-         * siempre arranca parado en el exterior mirando el edificio.
+         * IMPORTANTE: posActual.y = ALTURA_OJOS en ambos modos.
+         *   PC:    controls.getObject().position.y = ALTURA_OJOS
+         *   Móvil: playerRig.position.y            = ALTURA_OJOS
+         * (La cámara dentro del rig tiene y=0 local, así que en mundo = rig.y.)
          */
-        const box3    = new THREE.Box3().setFromObject(modelo);
-        const spawnX  = 0;
-        const spawnZ  = box3.max.z + 2.5;
-        const spawnY  = ALTURA_OJOS;
+        const boxSpawn = new THREE.Box3().setFromObject(modelo);
+        const spawnX   = (boxSpawn.min.x + boxSpawn.max.x) / 2;  // centro X
+        const spawnZ   = boxSpawn.max.z + 2.5;                    // 2.5 m fuera
+        const spawnY   = ALTURA_OJOS;                             // altura de ojos
 
         if (!ES_MOVIL && controls) {
           controls.getObject().position.set(spawnX, spawnY, spawnZ);
         } else if (playerRig) {
           playerRig.position.set(spawnX, spawnY, spawnZ);
         }
+        velocidadY = 0;   // resetear inercia vertical por si el modelo tardó en cargar
 
         /* ── EXTRACCIÓN DE COLLISION MESHES ── */
         const { meshesColision, encontroCollisionMesh } = extraerMeshesColision(modelo);
@@ -1352,45 +1346,41 @@
     /* ── 2. COLISIÓN CON MUROS ── */
     if (desplazamiento.length() > 0.0001 && colMuros.length > 0) {
       /*
-       * FIX DE COLISIÓN DE MUROS:
-       * ──────────────────────────
-       * Problema anterior: las alturas eran posActual.y - 0.7 y posActual.y - 0.1
-       * que en modo Free-Roam (posActual.y = 1.7 m) daban y=1.0 y y=1.6,
-       * correcto en ese caso pero incorrecto conceptualmente y frágil.
+       * ARQUITECTURA UNIFICADA PC + MÓVIL:
+       * ─────────────────────────────────────
+       * En ambos modos posActual.y es la altura de los OJOS en coordenadas
+       * de mundo (~1.7 m sobre el suelo). La semántica es idéntica.
        *
-       * Fix: las alturas son absolutas según el modo:
-       *   - Cintura: sueloAbsoluto + 0.9 m
-       *   - Ojos:    sueloAbsoluto + 1.6 m
-       * donde sueloAbsoluto = posActual.y - ALTURA_OJOS (en Free-Roam)
-       * o     sueloAbsoluto = posActual.y              (en VR, el rig está a ras)
+       * PC:    posActual = controls.getObject().position  → y = 1.7
+       * Móvil: posActual = playerRig.position             → y = 1.7
+       *        (la cámara local dentro del rig tiene y=0, el rig tiene y=1.7)
        *
-       * Además se añade un TERCER rayo en diagonal ±45° para capturar
-       * esquinas y movimiento diagonal que los 2 rayos frontales perdían.
+       * Alturas absolutas de los rayos:
+       *   yCintura = posActual.y - 0.8   (aprox. 0.9 m sobre el suelo)
+       *   yOjos    = posActual.y - 0.1   (aprox. 1.6 m sobre el suelo)
        *
-       * far se reduce a 0.45 m (radio de cápsula del jugador) y el check
-       * de distancia usa ese mismo valor para coherencia.
+       * RADIO de cápsula = 0.45 m. far e hit-distance usan el MISMO valor.
+       *
+       * 3 DIRECCIONES: frontal + 45° izq + 45° der para detectar esquinas
+       * y movimiento diagonal que 1 rayo frontal pierde.
        */
-      const enVR      = (modoActual === 'vr' && renderer.xr.isPresenting);
-      const sueloAbs  = enVR ? posActual.y : (posActual.y - ALTURA_OJOS);
-      const yCintura  = sueloAbs + 0.9;
-      const yOjos     = sueloAbs + 1.6;
-
-      const RADIO     = 0.45;   // radio de cápsula del jugador
-      const dirMov    = desplazamiento.clone().normalize();
-
-      /* Tres direcciones: frontal + 45° izq + 45° der (para esquinas) */
+      const RADIO   = 0.45;
+      const dirMov  = desplazamiento.clone().normalize();
+      const alturas = [posActual.y - 0.8, posActual.y - 0.1];  // cintura, ojos
       const angulos = [0, Math.PI / 4, -Math.PI / 4];
+
       let bloqueado  = false;
       let normalMuro = null;
 
-      externo:
+      deteccion:
       for (const angulo of angulos) {
-        const dirRotada = dirMov.clone().applyAxisAngle(VUP, angulo);
-        const alturas   = [yCintura, yOjos];
+        const dir = angulo === 0
+          ? dirMov
+          : dirMov.clone().applyAxisAngle(VUP, angulo);
 
         for (const altY of alturas) {
           const origen = new THREE.Vector3(posActual.x, altY, posActual.z);
-          rayMuro.set(origen, dirRotada);
+          rayMuro.set(origen, dir);
           rayMuro.near = 0;
           rayMuro.far  = RADIO;
 
@@ -1404,21 +1394,19 @@
               n.y = 0;
               if (n.length() > 0.001) {
                 normalMuro = n.normalize();
-                break externo;
               }
             }
-            break externo;
+            break deteccion;
           }
         }
       }
 
       if (bloqueado) {
         if (normalMuro) {
-          /* Wall-slide: cancelar solo la componente perpendicular al muro */
+          /* Wall-slide: cancelar solo componente perpendicular al muro */
           const penetracion = desplazamiento.dot(normalMuro);
           if (penetracion < 0) desplazamiento.addScaledVector(normalMuro, -penetracion);
         } else {
-          /* Sin normal (geometría rara): bloqueo total */
           desplazamiento.set(0, 0, 0);
         }
       }
@@ -1457,24 +1445,30 @@
 
       const hitsAbajo = rayAbajo.intersectObjects(colSuelo, false);
 
-      /* Filtrar hits del rayo hacia abajo: solo superficies "horizontales"
-         (normal con componente Y >= 0.5). Esto descarta muros verticales
-         que el rayo puede tocar cuando el jugador está cerca de una pared. */
+      /*
+       * FILTRO DE NORMAL: descartar hits en superficies verticales (muros).
+       * Un muro puede intersectar el rayo hacia abajo si el jugador está muy
+       * cerca de él (especialmente en móvil sin PointerLock que permite
+       * posiciones más extremas). Solo aceptar superficies con normal.y >= 0.5
+       * (ángulo < 60° respecto a horizontal → suelo/rampa válida).
+       */
       const hitsSuelo = hitsAbajo.filter(h => {
-        if (!h.face) return true;  // sin face normal: aceptar (geometría rara)
-        const worldNormal = h.face.normal.clone()
-          .transformDirection(h.object.matrixWorld)
-          .normalize();
-        return worldNormal.y >= 0.5;
+        if (!h.face) return true;
+        const wn = h.face.normal.clone().transformDirection(h.object.matrixWorld);
+        return wn.y >= 0.5;
       });
 
       if (hitsSuelo.length > 0) {
         const distReal = hitsSuelo[0].distance - OFFSET_Y;
         const sueloY   = posActual.y - distReal;
-        /* En VR el rig debe quedar exactamente en sueloY; en Free-Roam, a ojo-altura */
+        /*
+         * SEMÁNTICA UNIFICADA PC + MÓVIL:
+         * posActual.y = altura de ojos en mundo en ambos modos.
+         * targetY = sueloY + ALTURA_OJOS (igual para PC y móvil).
+         * enVR = true solo cuando el headset XR está presentando.
+         */
         const targetY  = enVR ? sueloY : sueloY + ALTURA_OJOS;
         const diff     = targetY - posActual.y;
-        /* En VR la distancia de "apoyado" es casi 0 (el rig está a ras de suelo) */
         const umbralApoyado = enVR ? 0.08 : ALTURA_OJOS + 0.08;
 
         if (distReal <= umbralApoyado) {
@@ -1501,30 +1495,25 @@
           document.getElementById('dbg-suelo').textContent =
             `suelo: ${sueloY.toFixed(2)} | dist: ${distReal.toFixed(2)} | diff: ${diff.toFixed(3)} | VR:${enVR}`;
         }
-      } else if (hitsAbajo.length > 0) {
-        /* Hay hits pero todos son muros verticales — ignorar, tratar como aire */
-        velocidadY += GRAVEDAD * delta;
-        posActual.y += velocidadY * delta;
-        if (posActual.y < (enVR ? 0 : ALTURA_OJOS)) {
-          posActual.y = enVR ? 0 : ALTURA_OJOS;
-          velocidadY  = 0;
-        }
-        if (DEBUG) document.getElementById('dbg-suelo').textContent = 'suelo: solo muros (ignorado)';
       } else {
+        /* Sin suelo válido (en el aire o junto a muro vertical) */
         velocidadY += GRAVEDAD * delta;
         posActual.y += velocidadY * delta;
 
+        /* Safety floor: si cae al vacío, reposicionar a altura de ojos */
         if (posActual.y < -20) {
           posActual.y = enVR ? 0 : ALTURA_OJOS;
           velocidadY  = 0;
-          if (DEBUG) console.warn('[INTERIKA] Safety floor activado — reposicionando jugador');
+          if (DEBUG) console.warn('[INTERIKA] Safety floor activado');
         }
 
         if (DEBUG) {
-          document.getElementById('dbg-suelo').textContent = 'suelo: sin hit (aire)';
+          document.getElementById('dbg-suelo').textContent =
+            `suelo: sin hit | hitsTotal: ${hitsAbajo.length} | filtrados: ${hitsAbajo.length - hitsSuelo.length}`;
         }
       }
     } else {
+      /* Sin meshes de colisión aún (modelo cargando) */
       posActual.y = ALTURA_OJOS;
     }
 
